@@ -5,9 +5,22 @@ use vec3::Vec3;
 use ray::Ray;
 
 fn color(ray: &Ray) -> Vec3 {
-    let unitDirection = ray.direction().normalized();
-    let t = 0.5 * unitDirection.y() + 1.0;
-    return Vec3::new(1.0, 1.0, 1.0) * (1.0 - t) + Vec3::new(0.5, 0.7, 1.0) * t;
+    if hitSphere(&Vec3::new(0.0, 0.0, -1.0), 0.5, ray) {
+        return Vec3::new(1.0, 0.0, 0.0);
+    } else {
+        let unitDirection = ray.direction().normalized();
+        let t = 0.5 * unitDirection.y() + 1.0;
+        return Vec3::new(1.0, 1.0, 1.0) * (1.0 - t) + Vec3::new(0.5, 0.7, 1.0) * t;
+    }
+}
+
+fn hitSphere(center: &Vec3, radius: f64, ray: &Ray) -> bool {
+    let oc = *ray.origin() - *center;
+    let a = ray.direction().dot(ray.direction());
+    let b = oc.dot(ray.direction()) * 2.0;
+    let c = oc.dot(&oc) - radius * radius;
+    let discriminant = b * b - 4.0 * a * c;
+    return discriminant > 0.0;
 }
 
 fn main() {
