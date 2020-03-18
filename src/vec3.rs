@@ -85,6 +85,18 @@ impl Add<Vec3> for Vec3 {
     }
 }
 
+impl Add<f64> for Vec3 {
+    type Output = Self;
+
+    fn add(self, other: f64) -> Self {
+        Self {
+            x: self.x + other,
+            y: self.y + other,
+            z: self.z + other,
+        }
+    }
+}
+
 impl AddAssign<Vec3> for Vec3 {
     fn add_assign(&mut self, other: Self) {
         self.x += other.x;

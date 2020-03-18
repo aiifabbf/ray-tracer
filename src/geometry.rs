@@ -30,16 +30,16 @@ impl Hit for Sphere {
         } else {
             let t1 = (-b - discriminant.sqrt()) / (2.0 * a);
             let t2 = (-b + discriminant.sqrt()) / (2.0 * a);
-            let mut t;
-            if t1 >= 0.0 {
+            let mut t = t1;
+            if t1 > 0.0 {
                 t = t1;
-            } else if t2 >= 0.0 {
+            } else if t2 > 0.0 {
                 t = t2;
             } else {
                 return None;
             }
             let intersection = ray.pointAtParameter(t);
-            let normal = (intersection - self.center) / self.radius;
+            let normal = ((intersection - self.center) / self.radius).normalized();
             let record = HitRecord::new(t, intersection, normal);
             return Some(record);
         }
