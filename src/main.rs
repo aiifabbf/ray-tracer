@@ -71,7 +71,7 @@ fn main() {
 
     let mut generator = thread_rng();
 
-    let subPixelSampleCount = 20;
+    let subPixelSampleCount = 10; // 每个pixel细分成多少个sub pixel
 
     for y in (0..height).rev() {
         for x in 0..width {
@@ -87,9 +87,9 @@ fn main() {
             pixel /= subPixelSampleCount as f64;
             println!(
                 "{:?} {:?} {:?}",
-                (pixel.r() * 255.0) as usize,
-                (pixel.g() * 255.0) as usize,
-                (pixel.b() * 255.0) as usize,
+                (pixel.r().sqrt() * 255.0) as usize,
+                (pixel.g().sqrt() * 255.0) as usize,
+                (pixel.b().sqrt() * 255.0) as usize,
             );
         }
     }
