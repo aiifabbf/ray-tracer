@@ -1,31 +1,24 @@
-mod vec3;
+mod geometry;
 mod ray;
+mod vec3;
 
-use vec3::Vec3;
+use geometry::Sphere;
+use ray::Hit;
 use ray::Ray;
+use vec3::Vec3;
 
-fn color(ray: &Ray) -> Vec3 {
-    let t = hitSphere(&Vec3::new(0.0, 0.0, -1.0), 0.5, ray);
-    if t > 0.0 {
+fn color(ray: &Ray, world: &dyn Hit) -> Vec3 {
+    let record = world.hit(ray);
+    if record.is_some() {
+        let record = record.unwrap();
+        let t = record.t();
         let normal = (ray.pointAtParameter(t) - Vec3::new(0.0, 0.0, -1.0)).normalized();
         return Vec3::new(normal.x() + 1.0, normal.y() + 1.0, normal.z() + 1.0) * 0.5;
     } else {
+        // 背景
         let unitDirection = ray.direction().normalized();
         let t = 0.5 * unitDirection.y() + 1.0;
         return Vec3::new(1.0, 1.0, 1.0) * (1.0 - t) + Vec3::new(0.5, 0.7, 1.0) * t;
-    }
-}
-
-fn hitSphere(center: &Vec3, radius: f64, ray: &Ray) -> f64 {
-    let oc = *ray.origin() - *center;
-    let a = ray.direction().dot(ray.direction());
-    let b = oc.dot(ray.direction()) * 2.0;
-    let c = oc.dot(&oc) - radius * radius;
-    let discriminant = b * b - 4.0 * a * c;
-    if discriminant < 0.0 {
-        return -1.0;
-    } else {
-        return (- b - discriminant.sqrt()) / (2.0 * a);
     }
 }
 
@@ -41,12 +34,17 @@ fn main() {
     let vertical = Vec3::new(0.0, 2.0, 0.0);
     let origin = Vec3::new(0.0, 0.0, 0.0);
 
+    let mut world: Vec<Box<dyn Hit>> = vec![];
+
+    world.push(Box::new(Sphere::new(Vec3::new(0.0, 0.0, -1.0), 0.5)));
+    world.push(Box::new(Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0)));
+
     for y in (0..height).rev() {
         for x in 0..width {
             let u = x as f64 / width as f64;
             let v = y as f64 / height as f64;
             let ray = Ray::new(origin, lowerLeft + horizontal * u + vertical * v);
-            let pixel = color(&ray);
+            let pixel = color(&ray, &world);
             println!(
                 "{:?} {:?} {:?}",
                 (pixel.r() * 256.0) as usize,
