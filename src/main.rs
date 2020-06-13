@@ -53,8 +53,8 @@ fn color(ray: &Ray, world: &dyn Hit) -> Vec3 {
 }
 
 fn main() {
-    let width = 500;
-    let height = 250;
+    let width = 1000;
+    let height = 500;
     println!("P3");
     println!("{:?} {:?}", width, height);
     println!("255");
@@ -64,27 +64,49 @@ fn main() {
     let vertical = Vec3::new(0.0, 2.0, 0.0);
     let origin = Vec3::new(0.0, 0.0, 0.0);
 
-    let mut world: Vec<Box<dyn Hit>> = vec![];
+    let mut world: Vec<Box<dyn Hit + Send + Sync>> = vec![];
 
     world.push(Box::new(Sphere::new(Vec3::new(0.0, 0.0, -1.0), 0.5)));
     world.push(Box::new(Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0)));
 
-    let mut generator = thread_rng();
+    let world = std::sync::Arc::new(world);
 
-    let subPixelSampleCount = 10; // 每个pixel细分成多少个sub pixel
+    
+    let subPixelSampleCount = 16; // 每个pixel细分成多少个sub pixel
+    
+    let (sender, receiver) = std::sync::mpsc::channel();
+    let mut buffer = vec![vec![Vec3::new(0.0, 0.0, 0.0); width]; height];
+    
+    for y in (0..height).rev() {
+        for x in 0..width {
+            let sender = sender.clone();
+            let world = world.clone();
+            
+            std::thread::spawn(move || {
+                let mut pixel = Vec3::new(0.0, 0.0, 0.0);
+                for _ in 0..subPixelSampleCount {
+                    let mut generator = thread_rng();
+                    let u = (x as f64 + generator.gen_range(0.0, 1.0)) / width as f64;
+                    let v = (y as f64 + generator.gen_range(0.0, 1.0)) / height as f64;
+                    let ray = Ray::new(origin, lowerLeft + horizontal * u + vertical * v);
+                    pixel += color(&ray, world.as_ref());
+                }
+                pixel /= subPixelSampleCount as f64;
+                sender.send((x, y, pixel));
+            });
+        }
+    }
+
+    for _ in (0..height).rev() {
+        for _ in 0..width {
+            let (x, y, pixel) = receiver.recv().unwrap();
+            buffer[y][x] = pixel;
+        }
+    }
 
     for y in (0..height).rev() {
         for x in 0..width {
-            let mut pixel = Vec3::new(0.0, 0.0, 0.0);
-
-            for w in 0..subPixelSampleCount {
-                let u = (x as f64 + generator.gen_range(0.0, 1.0)) / width as f64;
-                let v = (y as f64 + generator.gen_range(0.0, 1.0)) / height as f64;
-                let ray = Ray::new(origin, lowerLeft + horizontal * u + vertical * v);
-                pixel += color(&ray, &world);
-            }
-
-            pixel /= subPixelSampleCount as f64;
+            let pixel = &buffer[y][x];
             println!(
                 "{:?} {:?} {:?}",
                 (pixel.r().sqrt() * 255.0) as usize,
