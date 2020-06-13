@@ -1,0 +1,23 @@
+use crate::vec3::Vec3;
+use rand::random;
+
+pub fn randomInUnitSphere() -> Vec3 {
+    let mut p = Vec3::new(1.0, 1.0, 1.0);
+
+    while p.dot(&p) >= 1.0 {
+        p = Vec3::new(random::<f64>(), random::<f64>(), random::<f64>()) * 2.0
+            - Vec3::new(1.0, 1.0, 1.0);
+    }
+
+    return p;
+}
+// 书上用的是这个奇怪的球面向量生成器，但是我感觉这不就是一个很简单的变换吗……
+
+// fn randomInUnitSphere() -> Vec3 {
+//     let theta = random::<f64>().fract();
+//     let phi = random::<f64>().fract();
+//     let r = random::<f64>().fract();
+
+//     return Vec3::new(r * phi.sin() * theta.cos(), r * phi.sin() * theta.sin(), r * phi.cos());
+// }
+// 试了下，果然不是很均匀……

@@ -1,49 +1,35 @@
 mod geometry;
+mod material;
 mod ray;
+mod sprite;
+mod util;
 mod vec3;
 
 use geometry::Sphere;
+use material::Lambertian;
+use material::Metal;
 use ray::Hit;
 use ray::Ray;
+use sprite::Sprite;
+use util::randomInUnitSphere;
 use vec3::Vec3;
 
-use rand::random;
 use rand::thread_rng;
-use rand::Rng;
+use rand::Rng; // generator.gen_range()居然会用到这个，匪夷所思
 
-use std::f64;
-
-fn randomInUnitSphere() -> Vec3 {
-    let mut p = Vec3::new(1.0, 1.0, 1.0);
-
-    while p.dot(&p) >= 1.0 {
-        p = Vec3::new(random::<f64>(), random::<f64>(), random::<f64>()) * 2.0
-            - Vec3::new(1.0, 1.0, 1.0);
-    }
-
-    return p;
-}
-// 书上用的是这个奇怪的球面向量生成器，但是我感觉这不就是一个很简单的变换吗……
-
-// fn randomInUnitSphere() -> Vec3 {
-//     let theta = random::<f64>().fract();
-//     let phi = random::<f64>().fract();
-//     let r = random::<f64>().fract();
-
-//     return Vec3::new(r * phi.sin() * theta.cos(), r * phi.sin() * theta.sin(), r * phi.cos());
-// }
-// 试了下，果然不是很均匀……
+use std::sync::Arc;
 
 fn color(ray: &Ray, world: &dyn Hit) -> Vec3 {
-    let record = world.hit(ray);
-    if record.is_some() {
-        let record = record.unwrap();
-        // let target = *record.intersection() + *record.normal() + Vec3::new(random::<f64>(), random::<f64>(), random::<f64>()).normalized();
-        let target = *record.intersection() + *record.normal() + randomInUnitSphere().normalized();
-        return color(
-            &Ray::new(*record.intersection(), target - *record.intersection()),
-            world,
-        ) * 0.5;
+    if let Some(record) = world.hit(ray) {
+        if let Some(material) = record.material() {
+            if let Some((scattered, attenuation)) = material.scatter(ray, &record) {
+                return attenuation * color(&scattered, world);
+            } else {
+                return Vec3::new(0.0, 0.0, 0.0);
+            }
+        } else {
+            return Vec3::new(0.0, 0.0, 0.0);
+        }
     } else {
         // 背景
         let unitDirection = ray.direction().normalized();
@@ -64,26 +50,41 @@ fn main() {
     let vertical = Vec3::new(0.0, 2.0, 0.0);
     let origin = Vec3::new(0.0, 0.0, 0.0);
 
-    let mut world: Vec<Box<dyn Hit + Send + Sync>> = vec![];
-
-    world.push(Box::new(Sphere::new(Vec3::new(0.0, 0.0, -1.0), 0.5)));
-    world.push(Box::new(Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0)));
+    let mut world: Vec<Box<dyn Hit + Send + Sync>> = vec![
+        Box::new(Sprite::new(
+            Some(Arc::new(Sphere::new(Vec3::new(0.0, 0.0, -1.0), 0.5))),
+            Some(Arc::new(Lambertian::new(Vec3::new(0.8, 0.3, 0.3)))),
+        )),
+        Box::new(Sprite::new(
+            Some(Arc::new(Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0))),
+            Some(Arc::new(Lambertian::new(Vec3::new(0.8, 0.8, 0.0)))),
+        )),
+        Box::new(Sprite::new(
+            Some(Arc::new(Sphere::new(Vec3::new(1.0, 0.0, -1.0), 0.5))),
+            Some(Arc::new(Metal::new(Vec3::new(0.8, 0.6, 0.2)))),
+        )),
+        Box::new(Sprite::new(
+            Some(Arc::new(Sphere::new(Vec3::new(-1.0, 0.0, -1.0), 0.5))),
+            Some(Arc::new(Metal::new(Vec3::new(0.8, 0.8, 0.8)))),
+        )),
+    ];
 
     let world = std::sync::Arc::new(world);
 
-    
     let subPixelSampleCount = 16; // 每个pixel细分成多少个sub pixel
-    
     let (sender, receiver) = std::sync::mpsc::channel();
     let mut buffer = vec![vec![Vec3::new(0.0, 0.0, 0.0); width]; height];
-    
+
+    let executor = threadpool::ThreadPool::new(num_cpus::get());
+
     for y in (0..height).rev() {
         for x in 0..width {
             let sender = sender.clone();
             let world = world.clone();
-            
-            std::thread::spawn(move || {
+
+            executor.execute(move || {
                 let mut pixel = Vec3::new(0.0, 0.0, 0.0);
+
                 for _ in 0..subPixelSampleCount {
                     let mut generator = thread_rng();
                     let u = (x as f64 + generator.gen_range(0.0, 1.0)) / width as f64;
@@ -91,6 +92,7 @@ fn main() {
                     let ray = Ray::new(origin, lowerLeft + horizontal * u + vertical * v);
                     pixel += color(&ray, world.as_ref());
                 }
+
                 pixel /= subPixelSampleCount as f64;
                 sender.send((x, y, pixel));
             });

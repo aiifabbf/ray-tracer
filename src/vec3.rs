@@ -43,7 +43,7 @@ impl Vec3 {
     pub fn cross(&self, other: &Self) -> Self {
         Self {
             x: self.y * other.z - self.z * other.y,
-            y: - (self.x * other.z - self.z * other.x),
+            y: -(self.x * other.z - self.z * other.x),
             z: self.x * other.y - self.y * other.x,
         }
     }
@@ -58,6 +58,11 @@ impl Vec3 {
 
     pub fn normalized(&self) -> Self {
         return *self / self.length();
+    }
+
+    pub fn reflected(&self, normal: &Self) -> Self {
+        let normal = normal.normalized();
+        return *self - normal * self.dot(&normal) * 2.0;
     }
 }
 
@@ -145,6 +150,18 @@ impl Mul<Vec3> for f64 {
             x: other.x * self,
             y: other.y * self,
             z: other.z * self,
+        }
+    }
+}
+
+impl Mul<Vec3> for Vec3 {
+    type Output = Vec3;
+
+    fn mul(self, other: Vec3) -> Vec3 {
+        Vec3 {
+            x: self.x * other.x,
+            y: self.y * other.y,
+            z: self.z * other.z,
         }
     }
 }

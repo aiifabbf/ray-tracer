@@ -1,7 +1,7 @@
-use crate::vec3::Vec3;
-use crate::ray::Ray;
 use crate::ray::Hit;
 use crate::ray::HitRecord;
+use crate::ray::Ray;
+use crate::vec3::Vec3;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Sphere {
@@ -40,7 +40,7 @@ impl Hit for Sphere {
             }
             let intersection = ray.pointAtParameter(t);
             let normal = ((intersection - self.center) / self.radius).normalized();
-            let record = HitRecord::new(t, intersection, normal);
+            let record = HitRecord::new(t, intersection, normal, None);
             return Some(record);
         }
     }
@@ -57,7 +57,29 @@ impl Hit for Vec<Box<dyn Hit>> {
                 if res.is_none() {
                     res.replace(record);
                 } else {
-                    if record.t() < res.unwrap().t() {
+                    if record.t() < res.as_ref().unwrap().t() {
+                        res.replace(record);
+                    }
+                }
+            }
+        }
+
+        return res;
+    }
+}
+
+impl Hit for Vec<Box<dyn Hit + Send + Sync>> {
+    fn hit(&self, ray: &Ray) -> Option<HitRecord> {
+        let mut res = None;
+
+        for v in self.iter() {
+            let record = v.hit(ray);
+            if record.is_some() {
+                let record = record.unwrap();
+                if res.is_none() {
+                    res.replace(record);
+                } else {
+                    if record.t() < res.as_ref().unwrap().t() {
                         res.replace(record);
                     }
                 }

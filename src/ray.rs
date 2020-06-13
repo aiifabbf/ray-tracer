@@ -1,4 +1,7 @@
+use crate::material::Material;
 use crate::vec3::Vec3;
+
+use std::sync::Arc;
 
 #[derive(Copy, Debug, Clone)]
 pub struct Ray {
@@ -28,19 +31,25 @@ impl Ray {
     }
 }
 
-#[derive(Copy, Debug, Clone)]
 pub struct HitRecord {
     t: f64,
     intersection: Vec3,
     normal: Vec3,
+    material: Option<Arc<dyn Material>>,
 }
 
 impl HitRecord {
-    pub fn new(t: f64, intersection: Vec3, normal: Vec3) -> Self {
+    pub fn new(
+        t: f64,
+        intersection: Vec3,
+        normal: Vec3,
+        material: Option<Arc<dyn Material>>,
+    ) -> Self {
         Self {
             t: t,
             intersection: intersection,
             normal: normal,
+            material: material,
         }
     }
 
@@ -55,8 +64,12 @@ impl HitRecord {
     pub fn normal(&self) -> &Vec3 {
         return &self.normal;
     }
+
+    pub fn material(&self) -> &Option<Arc<dyn Material>> {
+        return &self.material;
+    }
 }
 
-pub trait Hit {
+pub trait Hit: Send + Sync {
     fn hit(&self, ray: &Ray) -> Option<HitRecord>;
 }
