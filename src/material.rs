@@ -70,11 +70,12 @@ impl Material for Metal {
             },
         );
         let attenuation = self.albedo;
-        if hitRecord.front() {
+        if rayIn.direction().dot(hitRecord.normal()) < 0.0 {
             return Some((scattered, attenuation));
         } else {
-            // eprintln!("1");
+            // eprintln!("{:#?} {:#?} {:#?}", rayIn, hitRecord.normal(), scattered);
             // 我发现反射居然有的时候也会内表面反射，很奇怪
+            // 破案了，是浮点数精度问题。入射光反射的时候，因为精度不够，算出来的反射点坐标有时候会偏移到球的内部
             return None;
         }
     }
@@ -103,7 +104,7 @@ impl Material for Dielectric {
         let mut refractiveInOverOut = 1.0;
         let mut normal = *hitRecord.normal();
 
-        if hitRecord.front() {
+        if rayIn.direction().dot(hitRecord.normal()) < 0.0 {
             refractiveInOverOut = 1.0 / self.refractive;
         } else {
             refractiveInOverOut = self.refractive;

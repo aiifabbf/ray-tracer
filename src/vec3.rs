@@ -61,7 +61,7 @@ impl Vec3 {
     }
 
     pub fn reflected(&self, normal: &Self) -> Self {
-        return *self - *normal * self.dot(&normal) * 2.0;
+        return *self - *normal * self.dot(normal) * 2.0;
     }
 
     // pub fn refracted(&self, normal: &Self, refractiveInOverOut: f64) -> Self {

@@ -69,7 +69,7 @@ impl Camera for PerspectiveCamera {
     fn ray(&self, u: f64, v: f64) -> Ray {
         return Ray::new(
             self.eye,
-            self.lowerLeft + self.horizontal * u + self.vertical * v - self.eye,
+            (self.lowerLeft + self.horizontal * u + self.vertical * v - self.eye).normalized(), // 这里direction要不要normalize呢……
         );
     }
 }

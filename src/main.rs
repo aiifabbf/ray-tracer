@@ -46,8 +46,8 @@ fn color(ray: &Ray, world: &dyn Hit, maxDepth: usize) -> Vec3 {
 }
 
 fn main() {
-    let width = 800;
-    let height = 400;
+    let width = 1600;
+    let height = 800;
     println!("P3");
     println!("{:?} {:?}", width, height);
     println!("255");

@@ -36,7 +36,6 @@ pub struct HitRecord {
     t: f64,
     intersection: Vec3,
     normal: Vec3,
-    front: bool, // true说明这道光线射中的是物体的外表面
     material: Option<Arc<dyn Material>>,
 }
 
@@ -45,14 +44,12 @@ impl HitRecord {
         t: f64,
         intersection: Vec3,
         normal: Vec3,
-        front: bool,
         material: Option<Arc<dyn Material>>,
     ) -> Self {
         Self {
             t: t,
             intersection: intersection,
             normal: normal,
-            front: front,
             material: material,
         }
     }
@@ -67,10 +64,6 @@ impl HitRecord {
 
     pub fn normal(&self) -> &Vec3 {
         return &self.normal;
-    }
-
-    pub fn front(&self) -> bool {
-        return self.front;
     }
 
     pub fn material(&self) -> &Option<Arc<dyn Material>> {
