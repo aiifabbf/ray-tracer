@@ -6,8 +6,8 @@ mod sprite;
 mod util;
 mod vec3;
 
-use camera::PerspectiveCamera;
 use camera::Camera; // 非要把trait也import进来才能调用trait方法
+use camera::PerspectiveCamera;
 use geometry::Sphere;
 use material::Dielectric;
 use material::Lambertian;
@@ -78,12 +78,18 @@ fn main() {
     ];
     let world = Arc::new(world);
 
+    let eye = Vec3::new(3.0, 3.0, 2.0);
+    let center = Vec3::new(0.0, 0.0, -1.0);
+    let up = Vec3::new(0.0, 1.0, 0.0);
+
     let camera = PerspectiveCamera::new(
-        Vec3::new(-2.0, 2.0, 1.0),
-        Vec3::new(0.0, 0.0, -1.0),
-        Vec3::new(0.0, 1.0, 0.0),
-        (60.0 as f64).to_radians(),
+        eye,
+        center,
+        up,
+        (20.0 as f64).to_radians(),
         width as f64 / height as f64,
+        (center - eye).length(),
+        1.0,
     );
     let camera = Arc::new(camera);
 

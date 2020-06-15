@@ -143,6 +143,18 @@ impl Sub<Vec3> for Vec3 {
     }
 }
 
+impl Sub<f64> for Vec3 {
+    type Output = Self;
+
+    fn sub(self, other: f64) -> Self {
+        Self {
+            x: self.x - other,
+            y: self.y - other,
+            z: self.z - other,
+        }
+    }
+}
+
 impl SubAssign<Vec3> for Vec3 {
     fn sub_assign(&mut self, other: Self) {
         self.x -= other.x;
