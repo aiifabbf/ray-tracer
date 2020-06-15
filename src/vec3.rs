@@ -61,8 +61,27 @@ impl Vec3 {
     }
 
     pub fn reflected(&self, normal: &Self) -> Self {
-        let normal = normal.normalized();
-        return *self - normal * self.dot(&normal) * 2.0;
+        return *self - *normal * self.dot(&normal) * 2.0;
+    }
+
+    // pub fn refracted(&self, normal: &Self, refractiveInOverOut: f64) -> Self {
+    //     let normalizedSelf = self.normalized();
+    //     let cosTheta = -normalizedSelf.dot(normal);
+    //     let parallel = refractiveInOverOut * (normalizedSelf + *normal * cosTheta);
+    //     let perpendicular = -(1.0 - parallel.length().sqrt()).sqrt() * *normal;
+    //     return parallel + perpendicular;
+    // }
+
+    // refract不一定总是有解的，比如从水里往空气里射一束光线，如果入射光足够贴近界面，是不会有折射的，会发生全反射的
+    pub fn refracted(&self, normal: &Self, refractiveInOverOut: f64) -> Option<Self> {
+        let uv = self.normalized();
+        let dt = uv.dot(normal);
+        let discriminant = 1.0 - refractiveInOverOut * refractiveInOverOut * (1.0 - dt * dt);
+        if discriminant > 0.0 {
+            return Some(refractiveInOverOut * (*self - *normal * dt) - *normal * discriminant.sqrt());
+        } else {
+            return None;
+        }
     }
 }
 
@@ -89,6 +108,8 @@ impl Add<Vec3> for Vec3 {
         }
     }
 }
+
+// 要不要写impl Add<&Vec3> for &Vec3呢……可是这样每个都要写一遍，好麻烦
 
 impl Add<f64> for Vec3 {
     type Output = Self;

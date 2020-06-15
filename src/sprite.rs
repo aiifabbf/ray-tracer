@@ -28,6 +28,7 @@ impl Hit for Sprite {
                     hitRecord.t(),
                     *hitRecord.intersection(),
                     *hitRecord.normal(),
+                    hitRecord.front(),
                     self.material.clone(),
                 );
                 return Some(res);

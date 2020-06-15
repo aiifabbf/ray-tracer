@@ -6,6 +6,7 @@ mod util;
 mod vec3;
 
 use geometry::Sphere;
+use material::Dielectric;
 use material::Lambertian;
 use material::Metal;
 use ray::Hit;
@@ -19,11 +20,15 @@ use rand::Rng; // generator.gen_range()居然会用到这个，匪夷所思
 
 use std::sync::Arc;
 
-fn color(ray: &Ray, world: &dyn Hit) -> Vec3 {
+fn color(ray: &Ray, world: &dyn Hit, maxDepth: usize) -> Vec3 {
+    if maxDepth == 0 {
+        return Vec3::new(0.0, 0.0, 0.0);
+    }
+
     if let Some(record) = world.hit(ray) {
         if let Some(material) = record.material() {
             if let Some((scattered, attenuation)) = material.scatter(ray, &record) {
-                return attenuation * color(&scattered, world);
+                return attenuation * color(&scattered, world, maxDepth - 1);
             } else {
                 return Vec3::new(0.0, 0.0, 0.0);
             }
@@ -33,7 +38,7 @@ fn color(ray: &Ray, world: &dyn Hit) -> Vec3 {
     } else {
         // 背景
         let unitDirection = ray.direction().normalized();
-        let t = 0.5 * unitDirection.y() + 1.0;
+        let t = 0.5 * (unitDirection.y() + 1.0);
         return Vec3::new(1.0, 1.0, 1.0) * (1.0 - t) + Vec3::new(0.5, 0.7, 1.0) * t;
     }
 }
@@ -50,10 +55,11 @@ fn main() {
     let vertical = Vec3::new(0.0, 2.0, 0.0);
     let origin = Vec3::new(0.0, 0.0, 0.0);
 
-    let mut world: Vec<Box<dyn Hit + Send + Sync>> = vec![
+    // 这里如果把Hit声明为Send + Sync的子trait，就不会报错
+    let mut world: Vec<Box<dyn Hit>> = vec![
         Box::new(Sprite::new(
             Some(Arc::new(Sphere::new(Vec3::new(0.0, 0.0, -1.0), 0.5))),
-            Some(Arc::new(Lambertian::new(Vec3::new(0.8, 0.3, 0.3)))),
+            Some(Arc::new(Lambertian::new(Vec3::new(0.1, 0.2, 0.5)))),
         )),
         Box::new(Sprite::new(
             Some(Arc::new(Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0))),
@@ -61,20 +67,21 @@ fn main() {
         )),
         Box::new(Sprite::new(
             Some(Arc::new(Sphere::new(Vec3::new(1.0, 0.0, -1.0), 0.5))),
-            Some(Arc::new(Metal::new(Vec3::new(0.8, 0.6, 0.2)))),
+            Some(Arc::new(Metal::new(Vec3::new(0.8, 0.6, 0.2), 0.0))),
         )),
         Box::new(Sprite::new(
             Some(Arc::new(Sphere::new(Vec3::new(-1.0, 0.0, -1.0), 0.5))),
-            Some(Arc::new(Metal::new(Vec3::new(0.8, 0.8, 0.8)))),
+            Some(Arc::new(Dielectric::new(1.5))),
         )),
     ];
 
     let world = std::sync::Arc::new(world);
 
-    let subPixelSampleCount = 16; // 每个pixel细分成多少个sub pixel
+    // 书上这个设置的是100，但是我调成128都没法达到书上那个图那么少的噪点……
+    let subPixelSampleCount = 100; // 每个pixel细分成多少个sub pixel
+
     let (sender, receiver) = std::sync::mpsc::channel();
     let mut buffer = vec![vec![Vec3::new(0.0, 0.0, 0.0); width]; height];
-
     let executor = threadpool::ThreadPool::new(num_cpus::get());
 
     for y in (0..height).rev() {
@@ -90,7 +97,8 @@ fn main() {
                     let u = (x as f64 + generator.gen_range(0.0, 1.0)) / width as f64;
                     let v = (y as f64 + generator.gen_range(0.0, 1.0)) / height as f64;
                     let ray = Ray::new(origin, lowerLeft + horizontal * u + vertical * v);
-                    pixel += color(&ray, world.as_ref());
+                    pixel += color(&ray, world.as_ref(), 100);
+                    // 书上这里把world变成了一个什么hit_list，我想不如直接给Vec<Box<dyn Hit>>实现Hit trait，这样多个物体和一个物体都满足Hit trait
                 }
 
                 pixel /= subPixelSampleCount as f64;

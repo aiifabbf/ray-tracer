@@ -19,6 +19,7 @@ impl Ray {
 
     pub fn origin(&self) -> &Vec3 {
         // 这里如果返回Vec3会stackoverflow，也是活久见……
+        // 后来发现并不是这个问题……是color()那里递归深度太大了
         return &self.origin;
     }
 
@@ -26,7 +27,7 @@ impl Ray {
         return &self.direction;
     }
 
-    pub fn pointAtParameter(&self, t: f64) -> Vec3 {
+    pub fn at(&self, t: f64) -> Vec3 {
         return *self.origin() + *self.direction() * t;
     }
 }
@@ -35,6 +36,7 @@ pub struct HitRecord {
     t: f64,
     intersection: Vec3,
     normal: Vec3,
+    front: bool, // true说明这道光线射中的是物体的外表面
     material: Option<Arc<dyn Material>>,
 }
 
@@ -43,12 +45,14 @@ impl HitRecord {
         t: f64,
         intersection: Vec3,
         normal: Vec3,
+        front: bool,
         material: Option<Arc<dyn Material>>,
     ) -> Self {
         Self {
             t: t,
             intersection: intersection,
             normal: normal,
+            front: front,
             material: material,
         }
     }
@@ -63,6 +67,10 @@ impl HitRecord {
 
     pub fn normal(&self) -> &Vec3 {
         return &self.normal;
+    }
+
+    pub fn front(&self) -> bool {
+        return self.front;
     }
 
     pub fn material(&self) -> &Option<Arc<dyn Material>> {

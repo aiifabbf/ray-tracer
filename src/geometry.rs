@@ -30,7 +30,7 @@ impl Hit for Sphere {
         } else {
             let t1 = (-b - discriminant.sqrt()) / (2.0 * a);
             let t2 = (-b + discriminant.sqrt()) / (2.0 * a);
-            let mut t = t1;
+            let mut t = t1; // 提示我value never read。可是我讨厌只声明不赋值
             if t1 > 0.0 {
                 t = t1;
             } else if t2 > 0.0 {
@@ -38,9 +38,14 @@ impl Hit for Sphere {
             } else {
                 return None;
             }
-            let intersection = ray.pointAtParameter(t);
+            let intersection = ray.at(t);
             let normal = ((intersection - self.center) / self.radius).normalized();
-            let record = HitRecord::new(t, intersection, normal, None);
+            let front = if ray.direction().dot(&normal) > 0.0 {
+                false
+            } else {
+                true
+            };
+            let record = HitRecord::new(t, intersection, normal, front, None);
             return Some(record);
         }
     }
@@ -68,6 +73,7 @@ impl Hit for Vec<Box<dyn Hit>> {
     }
 }
 
+// 这里Send + Sync不知道怎么去掉，只能复读一遍了。很奇怪，dyn Hit + Send + Sync不能cast到dyn Hit。按理说dyn Hit + Send + Sync应该是dyn Hit的子集，那么cast到dyn Hit应该完全没问题
 impl Hit for Vec<Box<dyn Hit + Send + Sync>> {
     fn hit(&self, ray: &Ray) -> Option<HitRecord> {
         let mut res = None;
