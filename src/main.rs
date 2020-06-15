@@ -1,3 +1,4 @@
+mod camera;
 mod geometry;
 mod material;
 mod ray;
@@ -5,6 +6,8 @@ mod sprite;
 mod util;
 mod vec3;
 
+use camera::PerspectiveCamera;
+use camera::Camera; // 非要把trait也import进来才能调用trait方法
 use geometry::Sphere;
 use material::Dielectric;
 use material::Lambertian;
@@ -12,7 +15,6 @@ use material::Metal;
 use ray::Hit;
 use ray::Ray;
 use sprite::Sprite;
-use util::randomInUnitSphere;
 use vec3::Vec3;
 
 use rand::thread_rng;
@@ -44,8 +46,8 @@ fn color(ray: &Ray, world: &dyn Hit, maxDepth: usize) -> Vec3 {
 }
 
 fn main() {
-    let width = 1000;
-    let height = 500;
+    let width = 800;
+    let height = 400;
     println!("P3");
     println!("{:?} {:?}", width, height);
     println!("255");
@@ -74,8 +76,16 @@ fn main() {
             Some(Arc::new(Dielectric::new(1.5))),
         )),
     ];
+    let world = Arc::new(world);
 
-    let world = std::sync::Arc::new(world);
+    let camera = PerspectiveCamera::new(
+        Vec3::new(-2.0, 2.0, 1.0),
+        Vec3::new(0.0, 0.0, -1.0),
+        Vec3::new(0.0, 1.0, 0.0),
+        (60.0 as f64).to_radians(),
+        width as f64 / height as f64,
+    );
+    let camera = Arc::new(camera);
 
     // 书上这个设置的是100，但是我调成128都没法达到书上那个图那么少的噪点……
     let subPixelSampleCount = 100; // 每个pixel细分成多少个sub pixel
@@ -88,6 +98,7 @@ fn main() {
         for x in 0..width {
             let sender = sender.clone();
             let world = world.clone();
+            let camera = camera.clone();
 
             executor.execute(move || {
                 let mut pixel = Vec3::new(0.0, 0.0, 0.0);
@@ -96,7 +107,8 @@ fn main() {
                     let mut generator = thread_rng();
                     let u = (x as f64 + generator.gen_range(0.0, 1.0)) / width as f64;
                     let v = (y as f64 + generator.gen_range(0.0, 1.0)) / height as f64;
-                    let ray = Ray::new(origin, lowerLeft + horizontal * u + vertical * v);
+                    // let ray = Ray::new(origin, lowerLeft + horizontal * u + vertical * v);
+                    let ray = camera.ray(u, v);
                     pixel += color(&ray, world.as_ref(), 100);
                     // 书上这里把world变成了一个什么hit_list，我想不如直接给Vec<Box<dyn Hit>>实现Hit trait，这样多个物体和一个物体都满足Hit trait
                 }

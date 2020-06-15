@@ -63,12 +63,18 @@ impl Material for Metal {
         let reflected = rayIn.direction().normalized().reflected(hitRecord.normal());
         let scattered = Ray::new(
             *hitRecord.intersection(),
-            reflected + self.fuzziness * randomInUnitSphere(),
+            if self.fuzziness == 0.0 {
+                reflected
+            } else {
+                reflected + self.fuzziness * randomInUnitSphere()
+            },
         );
         let attenuation = self.albedo;
-        if scattered.direction().dot(hitRecord.normal()) > 0.0 {
+        if hitRecord.front() {
             return Some((scattered, attenuation));
         } else {
+            // eprintln!("1");
+            // 我发现反射居然有的时候也会内表面反射，很奇怪
             return None;
         }
     }
@@ -98,9 +104,9 @@ impl Material for Dielectric {
         let mut normal = *hitRecord.normal();
 
         if hitRecord.front() {
-            refractiveInOverOut = 1.0 / self.refractive();
+            refractiveInOverOut = 1.0 / self.refractive;
         } else {
-            refractiveInOverOut = self.refractive();
+            refractiveInOverOut = self.refractive;
             normal = -normal;
         }
 
