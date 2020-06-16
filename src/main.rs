@@ -58,28 +58,29 @@ fn main() {
     let origin = Vec3::new(0.0, 0.0, 0.0);
 
     // 这里如果把Hit声明为Send + Sync的子trait，就不会报错
-    let mut world: Vec<Box<dyn Hit>> = vec![
-        Box::new(Sprite::new(
-            Some(Arc::new(Sphere::new(Vec3::new(0.0, 0.0, -1.0), 0.5))),
-            Some(Arc::new(Lambertian::new(Vec3::new(0.1, 0.2, 0.5)))),
-        )),
-        Box::new(Sprite::new(
-            Some(Arc::new(Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0))),
-            Some(Arc::new(Lambertian::new(Vec3::new(0.8, 0.8, 0.0)))),
-        )),
-        Box::new(Sprite::new(
-            Some(Arc::new(Sphere::new(Vec3::new(1.0, 0.0, -1.0), 0.5))),
-            Some(Arc::new(Metal::new(Vec3::new(0.8, 0.6, 0.2), 0.0))),
-        )),
-        Box::new(Sprite::new(
-            Some(Arc::new(Sphere::new(Vec3::new(-1.0, 0.0, -1.0), 0.5))),
-            Some(Arc::new(Dielectric::new(1.5))),
-        )),
-    ];
-    let world = Arc::new(world);
+    // let mut world: Vec<Box<dyn Hit>> = vec![
+    //     Box::new(Sprite::new(
+    //         Some(Arc::new(Sphere::new(Vec3::new(0.0, 0.0, -1.0), 0.5))),
+    //         Some(Arc::new(Lambertian::new(Vec3::new(0.1, 0.2, 0.5)))),
+    //     )),
+    //     Box::new(Sprite::new(
+    //         Some(Arc::new(Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0))),
+    //         Some(Arc::new(Lambertian::new(Vec3::new(0.8, 0.8, 0.0)))),
+    //     )),
+    //     Box::new(Sprite::new(
+    //         Some(Arc::new(Sphere::new(Vec3::new(1.0, 0.0, -1.0), 0.5))),
+    //         Some(Arc::new(Metal::new(Vec3::new(0.8, 0.6, 0.2), 0.0))),
+    //     )),
+    //     Box::new(Sprite::new(
+    //         Some(Arc::new(Sphere::new(Vec3::new(-1.0, 0.0, -1.0), 0.5))),
+    //         Some(Arc::new(Dielectric::new(1.5))),
+    //     )),
+    // ];
+    // let world = Arc::new(world);
+    let world = Arc::new(randomScene());
 
-    let eye = Vec3::new(3.0, 3.0, 2.0);
-    let center = Vec3::new(0.0, 0.0, -1.0);
+    let eye = Vec3::new(13.0, 2.0, 3.0);
+    let center = Vec3::new(0.0, 0.0, 0.0);
     let up = Vec3::new(0.0, 1.0, 0.0);
 
     let camera = PerspectiveCamera::new(
@@ -88,8 +89,8 @@ fn main() {
         up,
         (20.0 as f64).to_radians(),
         width as f64 / height as f64,
-        (center - eye).length(),
-        1.0,
+        10.0,
+        0.05,
     );
     let camera = Arc::new(camera);
 
@@ -143,4 +144,74 @@ fn main() {
             );
         }
     }
+}
+
+fn randomScene() -> Vec<Box<dyn Hit>> {
+    let mut scene: Vec<Box<dyn Hit>> = vec![Box::new(Sprite::new(
+        Some(Arc::new(Sphere::new(Vec3::new(0.0, -1000.0, 0.0), 1000.0))),
+        Some(Arc::new(Lambertian::new(Vec3::new(0.5, 0.5, 0.5)))),
+    ))];
+
+    let mut generator = thread_rng();
+
+    for a in -11..11 {
+        for b in -11..11 {
+            let whichMaterial = generator.gen_range(0.0, 1.0);
+            let center = Vec3::new(
+                a as f64 + 0.9 * generator.gen_range(0.0, 1.0),
+                0.2,
+                b as f64 + 0.9 * generator.gen_range(0.0, 1.0),
+            );
+
+            if (center - Vec3::new(4.0, 0.2, 0.0)).length() > 0.9 {
+                if whichMaterial < 0.3 {
+                    let mut albedo = Vec3::new(
+                        generator.gen_range(0.0, 1.0),
+                        generator.gen_range(0.0, 1.0),
+                        generator.gen_range(0.0, 1.0),
+                    );
+                    albedo = albedo * albedo;
+
+                    scene.push(Box::new(Sprite::new(
+                        Some(Arc::new(Sphere::new(center, 0.2))),
+                        Some(Arc::new(Lambertian::new(albedo))),
+                    )));
+                } else if whichMaterial < 0.6 {
+                    let albedo = Vec3::new(
+                        generator.gen_range(0.5, 1.0),
+                        generator.gen_range(0.5, 1.0),
+                        generator.gen_range(0.5, 1.0),
+                    );
+                    let fuzziness = generator.gen_range(0.0, 0.5);
+
+                    scene.push(Box::new(Sprite::new(
+                        Some(Arc::new(Sphere::new(center, 0.2))),
+                        Some(Arc::new(Metal::new(albedo, fuzziness))),
+                    )));
+                } else {
+                    scene.push(Box::new(Sprite::new(
+                        Some(Arc::new(Sphere::new(center, 0.2))),
+                        Some(Arc::new(Dielectric::new(1.5))),
+                    )));
+                }
+            }
+        }
+    }
+
+    scene.extend(vec![
+        Box::new(Sprite::new(
+            Some(Arc::new(Sphere::new(Vec3::new(-4.0, 1.0, 0.0), 1.0))),
+            Some(Arc::new(Lambertian::new(Vec3::new(0.4, 0.2, 0.1)))),
+        )) as Box<dyn Hit>,
+        Box::new(Sprite::new(
+            Some(Arc::new(Sphere::new(Vec3::new(4.0, 1.0, 0.0), 1.0))),
+            Some(Arc::new(Metal::new(Vec3::new(0.7, 0.6, 0.5), 0.0))),
+        )),
+        Box::new(Sprite::new(
+            Some(Arc::new(Sphere::new(Vec3::new(0.0, 1.0, 0.0), 1.0))),
+            Some(Arc::new(Dielectric::new(1.5))),
+        )),
+    ].into_iter());
+
+    return scene;
 }
