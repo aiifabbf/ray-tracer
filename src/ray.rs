@@ -32,6 +32,7 @@ impl Ray {
     }
 }
 
+#[derive(Clone)]
 pub struct HitRecord {
     t: f64,
     intersection: Vec3,
@@ -73,4 +74,15 @@ impl HitRecord {
 
 pub trait Hit: Send + Sync {
     fn hit(&self, ray: &Ray) -> Option<HitRecord>;
+}
+
+impl Default for HitRecord {
+    fn default() -> Self {
+        Self {
+            t: 1.0 / 0.0, // 这里必须是inf，因为bounding box只用来判断有没有hit，不判断hit在哪里
+            intersection: Vec3::new(0.0, 0.0, 0.0),
+            normal: Vec3::new(0.0, 0.0, 0.0),
+            material: None,
+        }
+    }
 }

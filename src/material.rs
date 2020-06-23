@@ -3,7 +3,9 @@ use crate::ray::Ray;
 use crate::util::randomInUnitSphere;
 use crate::vec3::Vec3;
 
-pub trait Material: Send + Sync {
+use std::fmt::Debug;
+
+pub trait Material: Send + Sync + Debug {
     fn scatter(&self, rayIn: &Ray, hitRecord: &HitRecord) -> Option<(Ray, Vec3)>;
     // 我觉得这里有点问题，真实世界里一束入射光会散射出多束反射光，但是这里只会返回一束光，以后怎么扩展成多束光呢
 }
@@ -128,6 +130,7 @@ impl Material for Dielectric {
                 attenuation,
             ));
             // 但是图上有明显的一圈一圈的杂质，不知道是什么原因
+            // 破案了，是浮点数精度的那个问题。解决了浮点数精度问题就好了
         }
     }
 }

@@ -78,7 +78,9 @@ impl Vec3 {
         let dt = uv.dot(normal);
         let discriminant = 1.0 - refractiveInOverOut * refractiveInOverOut * (1.0 - dt * dt);
         if discriminant > 0.0 {
-            return Some(refractiveInOverOut * (*self - *normal * dt) - *normal * discriminant.sqrt());
+            return Some(
+                refractiveInOverOut * (*self - *normal * dt) - *normal * discriminant.sqrt(),
+            );
         } else {
             return None;
         }
@@ -224,5 +226,19 @@ impl DivAssign<f64> for Vec3 {
         self.x /= other;
         self.y /= other;
         self.z /= other;
+    }
+}
+
+// 这样就可以vec3[0]了
+impl Index<usize> for Vec3 {
+    type Output = f64;
+
+    fn index(&self, dimension: usize) -> &Self::Output {
+        match dimension {
+            0 => &self.x,
+            1 => &self.y,
+            2 => &self.z,
+            v => panic!("dimension out of range: {}", v),
+        }
     }
 }

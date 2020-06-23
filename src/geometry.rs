@@ -16,6 +16,14 @@ impl Sphere {
             radius: radius,
         }
     }
+
+    pub fn center(&self) -> &Vec3 {
+        return &self.center;
+    }
+
+    pub fn radius(&self) -> f64 {
+        return self.radius;
+    }
 }
 
 impl Hit for Sphere {
@@ -70,22 +78,8 @@ impl Hit for Vec<Box<dyn Hit>> {
 }
 
 // 这里Send + Sync不知道怎么去掉，只能复读一遍了。很奇怪，dyn Hit + Send + Sync不能cast到dyn Hit。按理说dyn Hit + Send + Sync应该是dyn Hit的子集，那么cast到dyn Hit应该完全没问题
-impl Hit for Vec<Box<dyn Hit + Send + Sync>> {
-    fn hit(&self, ray: &Ray) -> Option<HitRecord> {
-        let mut res = None;
+// 去掉了impl Hit for Vec<Box<dyn Hit + Send + Sync>>，解决方法是直接声明Hit trait是Send + Sync trait的子集。
 
-        for v in self.iter() {
-            if let Some(record) = v.hit(ray) {
-                if res.is_none() {
-                    res.replace(record);
-                } else {
-                    if record.t() < res.as_ref().unwrap().t() {
-                        res.replace(record);
-                    }
-                }
-            }
-        }
-
-        return res;
-    }
-}
+// 但是我总觉得哪里怪怪的，Arc并不能使本身不Send也不Sync的对象变得Send和Sync，但是RwLock能使本身不Sync的对象变得Sync。
+// 我错了，RwLock<T>要求T本身是Send + Sync的，然后RwLock<T>整个变成Send + Sync，只有Mutex<T>只要求T本身只要Send就可以让Mutex<T>整个变得Send + Sync。
+// 这里有一个解释 <https://stackoverflow.com/questions/50704279/when-or-why-should-i-use-a-mutex-over-an-rwlock>

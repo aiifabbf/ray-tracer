@@ -1,31 +1,19 @@
-mod camera;
-mod geometry;
-mod material;
-mod optimize;
-mod ray;
-mod render;
-mod sprite;
-mod util;
-mod vec3;
+extern crate ray_tracer; // 不加这行的话，编译没问题，但是RLS就没有类型提示了，很怪。然而rust-analyzer有提示
 
-use crate::camera::Camera; // 非要把trait也import进来才能调用trait方法
-use crate::camera::PerspectiveCamera;
-use crate::geometry::Sphere;
-use crate::material::Dielectric;
-use crate::material::Lambertian;
-use crate::material::Metal;
-use crate::render::color;
-use crate::sprite::Sprite;
-use crate::vec3::Vec3;
-
-use crate::optimize::AxisAlignedBoundingBox;
-use crate::optimize::Bound;
-use crate::optimize::BoundingVolumeHierarchyNode;
+use ray_tracer::camera::Camera; // 非要把trait也import进来才能调用trait方法
+use ray_tracer::camera::PerspectiveCamera;
+use ray_tracer::geometry::Sphere;
+use ray_tracer::material::Dielectric;
+use ray_tracer::material::Lambertian;
+use ray_tracer::material::Metal;
+use ray_tracer::ray::Hit;
+use ray_tracer::ray::Ray;
+use ray_tracer::render::color;
+use ray_tracer::sprite::Sprite;
+use ray_tracer::vec3::Vec3;
 
 use rand::thread_rng;
 use rand::Rng; // generator.gen_range()居然会用到这个，匪夷所思
-
-// 知道了，因为gen_range是trait方法，所以必须要引入trait才行
 
 use std::sync::Arc;
 
@@ -36,33 +24,8 @@ fn main() {
     println!("{:?} {:?}", width, height);
     println!("255");
 
-    let lowerLeft = Vec3::new(-2.0, -1.0, -1.0);
-    let horizontal = Vec3::new(4.0, 0.0, 0.0);
-    let vertical = Vec3::new(0.0, 2.0, 0.0);
-    let origin = Vec3::new(0.0, 0.0, 0.0);
-
     // 这里如果把Hit声明为Send + Sync的子trait，就不会报错
-    // let mut world: Vec<Box<dyn Hit>> = vec![
-    //     Box::new(Sprite::new(
-    //         Some(Arc::new(Sphere::new(Vec3::new(0.0, 0.0, -1.0), 0.5))),
-    //         Some(Arc::new(Lambertian::new(Vec3::new(0.1, 0.2, 0.5)))),
-    //     )),
-    //     Box::new(Sprite::new(
-    //         Some(Arc::new(Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0))),
-    //         Some(Arc::new(Lambertian::new(Vec3::new(0.8, 0.8, 0.0)))),
-    //     )),
-    //     Box::new(Sprite::new(
-    //         Some(Arc::new(Sphere::new(Vec3::new(1.0, 0.0, -1.0), 0.5))),
-    //         Some(Arc::new(Metal::new(Vec3::new(0.8, 0.6, 0.2), 0.0))),
-    //     )),
-    //     Box::new(Sprite::new(
-    //         Some(Arc::new(Sphere::new(Vec3::new(-1.0, 0.0, -1.0), 0.5))),
-    //         Some(Arc::new(Dielectric::new(1.5))),
-    //     )),
-    // ];
-    // let world = Arc::new(world);
     let world = Arc::new(randomScene());
-    // eprintln!("{:#?}", world);
 
     let eye = Vec3::new(13.0, 2.0, 3.0);
     let center = Vec3::new(0.0, 0.0, 0.0);
@@ -80,7 +43,6 @@ fn main() {
     let camera = Arc::new(camera);
 
     // 书上这个设置的是100，但是我调成128都没法达到书上那个图那么少的噪点……
-    // 因为被浮点数精度坑了，不可能会有这么多噪点的
     let subPixelSampleCount = 100; // 每个pixel细分成多少个sub pixel
 
     let (sender, receiver) = std::sync::mpsc::channel();
@@ -102,8 +64,8 @@ fn main() {
                     let v = (y as f64 + generator.gen_range(0.0, 1.0)) / height as f64;
                     // let ray = Ray::new(origin, lowerLeft + horizontal * u + vertical * v);
                     let ray = camera.ray(u, v);
+                    pixel += color(&ray, world.as_ref(), 100);
                     // 书上这里把world变成了一个什么hit_list，我想不如直接给Vec<Box<dyn Hit>>实现Hit trait，这样多个物体和一个物体都满足Hit trait
-                    pixel += color(&ray, world.as_ref(), 100); // 天哪&*是什么玩意，还是用as_ref()吧
                 }
 
                 pixel /= subPixelSampleCount as f64;
@@ -132,14 +94,15 @@ fn main() {
     }
 }
 
-fn randomScene() -> BoundingVolumeHierarchyNode<AxisAlignedBoundingBox> {
-    let mut scene: Vec<Arc<dyn Bound<AxisAlignedBoundingBox>>> = vec![Arc::new(Sprite::new(
+fn randomScene() -> Vec<Box<dyn Hit>> {
+    let mut scene: Vec<Box<dyn Hit>> = vec![Box::new(Sprite::new(
         Some(Arc::new(Sphere::new(Vec3::new(0.0, -1000.0, 0.0), 1000.0))),
-        Some(Arc::new(Metal::new(Vec3::new(0.5, 0.5, 0.5), 0.5))),
-    ))];
+        Some(Arc::new(Lambertian::new(Vec3::new(0.5, 0.5, 0.5)))),
+    ))]; // 地面实际上是个巨大的球
 
     let mut generator = thread_rng();
 
+    // 随机生成一些小球
     for a in -11..11 {
         for b in -11..11 {
             let whichMaterial = generator.gen_range(0.0, 1.0);
@@ -151,27 +114,31 @@ fn randomScene() -> BoundingVolumeHierarchyNode<AxisAlignedBoundingBox> {
 
             if (center - Vec3::new(4.0, 0.2, 0.0)).length() > 0.9 {
                 if whichMaterial < 0.3 {
-                    let mut albedo = Vec3::new(1.0, 0.0, 0.0);
-                    if whichMaterial < 0.10 {
-                        albedo = Vec3::new(0.0, 0.0, 0.0);
-                    } else {
-                        albedo = Vec3::new(1.0, 1.0, 1.0);
-                    }
+                    let mut albedo = Vec3::new(
+                        generator.gen_range(0.0, 1.0),
+                        generator.gen_range(0.0, 1.0),
+                        generator.gen_range(0.0, 1.0),
+                    );
+                    albedo = albedo * albedo;
 
-                    scene.push(Arc::new(Sprite::new(
+                    scene.push(Box::new(Sprite::new(
                         Some(Arc::new(Sphere::new(center, 0.2))),
                         Some(Arc::new(Lambertian::new(albedo))),
                     )));
                 } else if whichMaterial < 0.6 {
-                    let albedo = Vec3::new(1.0, 0.0, 0.0);
+                    let albedo = Vec3::new(
+                        generator.gen_range(0.5, 1.0),
+                        generator.gen_range(0.5, 1.0),
+                        generator.gen_range(0.5, 1.0),
+                    );
                     let fuzziness = generator.gen_range(0.0, 0.5);
 
-                    scene.push(Arc::new(Sprite::new(
+                    scene.push(Box::new(Sprite::new(
                         Some(Arc::new(Sphere::new(center, 0.2))),
                         Some(Arc::new(Metal::new(albedo, fuzziness))),
                     )));
                 } else {
-                    scene.push(Arc::new(Sprite::new(
+                    scene.push(Box::new(Sprite::new(
                         Some(Arc::new(Sphere::new(center, 0.2))),
                         Some(Arc::new(Dielectric::new(1.5))),
                     )));
@@ -180,17 +147,18 @@ fn randomScene() -> BoundingVolumeHierarchyNode<AxisAlignedBoundingBox> {
         }
     }
 
+    // 场景最中间的三个大球
     scene.extend(
         vec![
-            Arc::new(Sprite::new(
+            Box::new(Sprite::new(
                 Some(Arc::new(Sphere::new(Vec3::new(-4.0, 1.0, 0.0), 1.0))),
-                Some(Arc::new(Lambertian::new(Vec3::new(1.0, 0.0, 0.0)))),
-            )) as Arc<dyn Bound<AxisAlignedBoundingBox>>,
-            Arc::new(Sprite::new(
+                Some(Arc::new(Lambertian::new(Vec3::new(0.4, 0.2, 0.1)))),
+            )) as Box<dyn Hit>,
+            Box::new(Sprite::new(
                 Some(Arc::new(Sphere::new(Vec3::new(4.0, 1.0, 0.0), 1.0))),
                 Some(Arc::new(Metal::new(Vec3::new(0.7, 0.6, 0.5), 0.0))),
             )),
-            Arc::new(Sprite::new(
+            Box::new(Sprite::new(
                 Some(Arc::new(Sphere::new(Vec3::new(0.0, 1.0, 0.0), 1.0))),
                 Some(Arc::new(Dielectric::new(1.5))),
             )),
@@ -198,9 +166,5 @@ fn randomScene() -> BoundingVolumeHierarchyNode<AxisAlignedBoundingBox> {
         .into_iter(),
     );
 
-    for v in scene.iter() {
-        eprintln!("{:#?}", v.bound());
-    }
-
-    return BoundingVolumeHierarchyNode::new(scene).unwrap();
+    return scene;
 }

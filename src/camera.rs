@@ -92,7 +92,7 @@ impl Camera for PerspectiveCamera {
         if self.lensRadius == 0.0 {
             return Ray::new(
                 self.eye,
-                (self.lowerLeft + self.horizontal * u + self.vertical * v - self.eye).normalized(), // 这里direction要不要normalize呢……
+                (self.lowerLeft + self.horizontal * u + self.vertical * v - self.eye).normalized(), // 这里direction要不要normalize呢……如果normalize，有一个好处是t就有非常明确的物理含义了，如果我们算出射线上某个点的t，就能确定这个点离射线的起点正好是t米
             );
         } else {
             let rd = self.lensRadius * randomInUnitDisk();
