@@ -214,3 +214,28 @@ impl Texture for CheckerTexture {
         }
     }
 }
+
+pub struct ImageTexture<T> {
+    mapping: T,
+}
+
+impl<T> ImageTexture<T> {
+    pub fn new(mapping: T) -> Self {
+        Self { mapping: mapping }
+    }
+}
+
+impl<T> Texture for ImageTexture<T>
+where
+    T: (Fn(&(f64, f64)) -> Vec3) + Send + Sync,
+{
+    fn value(&self, uv: &(f64, f64), point: &Vec3) -> Vec3 {
+        return (self.mapping)(uv);
+    }
+}
+
+impl<T> Debug for ImageTexture<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "ImageTexture")
+    }
+}

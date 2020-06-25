@@ -13,6 +13,7 @@ use crate::camera::PerspectiveCamera;
 use crate::geometry::Sphere;
 use crate::material::CheckerTexture;
 use crate::material::Dielectric;
+use crate::material::ImageTexture;
 use crate::material::Lambertian;
 use crate::material::Metal;
 use crate::material::Texture;
@@ -44,20 +45,42 @@ fn main() {
         Vec3::new(0.9, 0.9, 0.9),
     ));
 
-    let mut world: Vec<Box<dyn Hit>> = vec![
-        Box::new(Sprite::new(
-            Some(Arc::new(Sphere::new(Vec3::new(0.0, -10.0, 0.0), 10.0))),
-            Some(Arc::new(Lambertian::new(texture.clone()))),
-        )),
-        Box::new(Sprite::new(
-            Some(Arc::new(Sphere::new(Vec3::new(0.0, 10.0, 0.0), 10.0))),
-            Some(Arc::new(Lambertian::new(texture.clone()))),
-        )),
-    ];
+    // let mut world: Vec<Box<dyn Hit>> = vec![
+    //     Box::new(Sprite::new(
+    //         Some(Arc::new(Sphere::new(Vec3::new(0.0, -10.0, 0.0), 10.0))),
+    //         Some(Arc::new(Lambertian::new(texture.clone()))),
+    //     )),
+    //     Box::new(Sprite::new(
+    //         Some(Arc::new(Sphere::new(Vec3::new(0.0, 10.0, 0.0), 10.0))),
+    //         Some(Arc::new(Lambertian::new(texture.clone()))),
+    //     )),
+    // ];
+
+    let image = Arc::new(image::open("./earthmap.jpg").unwrap());
+    let mapping = move |uv: &(f64, f64)| -> Vec3 {
+        let image = image.clone();
+        let buffer = image.as_rgb8().unwrap();
+        let (u, v) = uv;
+        let pixel = buffer.get_pixel(
+            (u * buffer.width() as f64) as u32,
+            (v * buffer.height() as f64) as u32,
+        );
+        return Vec3::new(
+            pixel[0] as f64 / 255.0,
+            pixel[1] as f64 / 255.0,
+            pixel[2] as f64 / 255.0,
+        );
+    };
+    let texture: Arc<dyn Texture> = Arc::new(ImageTexture::new(mapping));
+
+    let world: Vec<Box<dyn Hit>> = vec![Box::new(Sprite::new(
+        Some(Arc::new(Sphere::new(Vec3::new(0.0, 0.0, 0.0), 2.0))),
+        Some(Arc::new(Lambertian::new(texture))),
+    ))];
     let world = Arc::new(world);
     // let world = Arc::new(randomScene());
 
-    let eye = Vec3::new(13.0, 2.0, 3.0);
+    let eye = Vec3::new(0.0, 0.0, 15.0);
     let center = Vec3::new(0.0, 0.0, 0.0);
     let up = Vec3::new(0.0, 1.0, 0.0);
 
@@ -67,7 +90,7 @@ fn main() {
         up,
         (20.0 as f64).to_radians(),
         width as f64 / height as f64,
-        10.0,
+        15.0,
         0.05,
     );
     let camera = Arc::new(camera);
@@ -93,6 +116,7 @@ fn main() {
                     let mut generator = thread_rng();
                     let u = (x as f64 + generator.gen_range(0.0, 1.0)) / width as f64;
                     let v = (y as f64 + generator.gen_range(0.0, 1.0)) / height as f64;
+                    // 这个不太符合OpenGL的normalized device coordinate，啥时候改一下
                     // let ray = Ray::new(origin, lowerLeft + horizontal * u + vertical * v);
                     let ray = camera.ray(u, v);
                     // 书上这里把world变成了一个什么hit_list，我想不如直接给Vec<Box<dyn Hit>>实现Hit trait，这样多个物体和一个物体都满足Hit trait
@@ -172,11 +196,29 @@ fn randomScene() -> BoundingVolumeHierarchyNode<AxisAlignedBoundingBox> {
         }
     }
 
+    let image = Arc::new(image::open("./earthmap.jpg").unwrap());
+    let mapping = move |uv: &(f64, f64)| -> Vec3 {
+        let image = image.clone();
+        let buffer = image.as_bgr8().unwrap();
+        let (u, v) = uv;
+        let pixel = buffer.get_pixel(
+            (u * buffer.width() as f64) as u32,
+            ((1.0 - v) * buffer.height() as f64) as u32,
+        );
+        return Vec3::new(
+            pixel[0] as f64 / 255.0,
+            pixel[1] as f64 / 255.0,
+            pixel[2] as f64 / 255.0,
+        );
+    };
+
+    let texture: Arc<dyn Texture> = Arc::new(ImageTexture::new(mapping));
+
     scene.extend(
         vec![
             Arc::new(Sprite::new(
                 Some(Arc::new(Sphere::new(Vec3::new(-4.0, 1.0, 0.0), 1.0))),
-                Some(Arc::new(Lambertian::new(Vec3::new(1.0, 0.0, 0.0)))),
+                Some(Arc::new(Lambertian::new(texture))),
             )) as Arc<dyn Bound<AxisAlignedBoundingBox>>,
             Arc::new(Sprite::new(
                 Some(Arc::new(Sphere::new(Vec3::new(4.0, 1.0, 0.0), 1.0))),
