@@ -3,6 +3,8 @@ use crate::ray::HitRecord;
 use crate::ray::Ray;
 use crate::vec3::Vec3;
 
+use std::f64::consts::PI;
+
 #[derive(Copy, Clone, Debug)]
 pub struct Sphere {
     center: Vec3,
@@ -23,6 +25,22 @@ impl Sphere {
 
     pub fn radius(&self) -> f64 {
         return self.radius;
+    }
+
+    // fn unitSphereUv(point: &Vec3) -> (f64, f64) {
+    //     let phi = point.z().atan2(point.x());
+    //     let theta = point.y().asin();
+    //     let u = 1.0 - (phi + PI) / (2.0 * PI);
+    //     let v = (theta + PI / 2.0) / PI;
+    //     return (u, v);
+    // }
+    // 我觉得书上的uv有点怪，y+应该是朝上的
+
+    // <https://en.wikipedia.org/wiki/UV_mapping>
+    fn unitSphereUv(point: &Vec3) -> (f64, f64) {
+        let u = 0.5 + (point.x().atan2(point.z())) / (2.0 * PI);
+        let v = 0.5 - point.y().asin() / PI;
+        return (u, v);
     }
 }
 
@@ -51,7 +69,8 @@ impl Hit for Sphere {
             }
             let intersection = ray.at(t);
             let normal = ((intersection - self.center) / self.radius).normalized();
-            let record = HitRecord::new(t, intersection, normal, None);
+            let uv = Sphere::unitSphereUv(&((intersection - *self.center()) / self.radius()));
+            let record = HitRecord::new(t, intersection, normal, None, uv);
             return Some(record);
         }
     }

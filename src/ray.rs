@@ -38,6 +38,7 @@ pub struct HitRecord {
     intersection: Vec3,
     normal: Vec3,
     material: Option<Arc<dyn Material>>,
+    uv: (f64, f64),
 }
 
 impl HitRecord {
@@ -46,12 +47,14 @@ impl HitRecord {
         intersection: Vec3,
         normal: Vec3,
         material: Option<Arc<dyn Material>>,
+        uv: (f64, f64), // 材质坐标
     ) -> Self {
         Self {
             t: t,
             intersection: intersection,
             normal: normal,
             material: material,
+            uv: uv,
         }
     }
 
@@ -70,6 +73,10 @@ impl HitRecord {
     pub fn material(&self) -> &Option<Arc<dyn Material>> {
         return &self.material;
     }
+
+    pub fn uv(&self) -> &(f64, f64) {
+        return &self.uv;
+    }
 }
 
 pub trait Hit: Send + Sync {
@@ -83,6 +90,7 @@ impl Default for HitRecord {
             intersection: Vec3::new(0.0, 0.0, 0.0),
             normal: Vec3::new(0.0, 0.0, 0.0),
             material: None,
+            uv: (0.0, 0.0),
         }
     }
 }

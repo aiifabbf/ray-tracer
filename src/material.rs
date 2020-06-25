@@ -3,7 +3,9 @@ use crate::ray::Ray;
 use crate::util::randomInUnitSphere;
 use crate::vec3::Vec3;
 
+use std::f64::consts::PI;
 use std::fmt::Debug;
+use std::sync::Arc;
 
 pub trait Material: Send + Sync + Debug {
     fn scatter(&self, rayIn: &Ray, hitRecord: &HitRecord) -> Option<(Ray, Vec3)>;
@@ -12,16 +14,38 @@ pub trait Material: Send + Sync + Debug {
 
 #[derive(Clone, Debug)]
 pub struct Lambertian {
-    albedo: Vec3,
+    // 改成Arc<dyn Texture>之后破坏了原来的API，怎么办
+    albedo: Arc<dyn Texture>, // 把材质直接写在material里有点奇怪……
 }
 
+// 所以这里把new()变成了泛型方法，就可以既接受Vec3表示的颜色，又可以接受其他dyn Texture
+// Rust不支持function overloading，所以这样也算是变相实现了overloading吧
+// 还有一种方案是这边不要泛型，让用户在外面手动vec3.into()
 impl Lambertian {
-    pub fn new(albedo: Vec3) -> Self {
-        Self { albedo: albedo }
+    pub fn new<T>(albedo: T) -> Self
+    where
+        T: Into<Arc<dyn Texture>>,
+    {
+        Self {
+            albedo: albedo.into(),
+        }
     }
 
-    pub fn albedo(&self) -> &Vec3 {
+    pub fn albedo(&self) -> &Arc<dyn Texture> {
         return &self.albedo;
+    }
+}
+
+// 并且在这里把Vec3实现为Into<Arc<dyn Texture>>，这样普通的Vec3就可以塞到Lambertian::new()里面了
+impl Into<Arc<dyn Texture>> for Vec3 {
+    fn into(self) -> Arc<dyn Texture> {
+        Arc::new(SolidColor { color: self })
+    }
+}
+
+impl Into<SolidColor> for Vec3 {
+    fn into(self) -> SolidColor {
+        SolidColor { color: self }
     }
 }
 
@@ -32,26 +56,29 @@ impl Material for Lambertian {
             *hitRecord.intersection(),
             target - *hitRecord.intersection(),
         );
-        let attenuation = self.albedo;
+        let attenuation = self.albedo.value(hitRecord.uv(), hitRecord.intersection());
         return Some((scattered, attenuation));
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct Metal {
-    albedo: Vec3,
+    albedo: Arc<dyn Texture>,
     fuzziness: f64,
 }
 
 impl Metal {
-    pub fn new(albedo: Vec3, fuzziness: f64) -> Self {
+    pub fn new<T>(albedo: T, fuzziness: f64) -> Self
+    where
+        T: Into<Arc<dyn Texture>>,
+    {
         Self {
-            albedo: albedo,
+            albedo: albedo.into(),
             fuzziness: fuzziness,
         }
     }
 
-    pub fn albedo(&self) -> &Vec3 {
+    pub fn albedo(&self) -> &Arc<dyn Texture> {
         return &self.albedo;
     }
 
@@ -71,7 +98,7 @@ impl Material for Metal {
                 reflected + self.fuzziness * randomInUnitSphere()
             },
         );
-        let attenuation = self.albedo;
+        let attenuation = self.albedo.value(hitRecord.uv(), hitRecord.intersection());
         if rayIn.direction().dot(hitRecord.normal()) < 0.0 {
             return Some((scattered, attenuation));
         } else {
@@ -85,6 +112,7 @@ impl Material for Metal {
 
 #[derive(Clone, Debug)]
 pub struct Dielectric {
+    // 折射物质没有texture？
     refractive: f64,
 }
 
@@ -131,6 +159,58 @@ impl Material for Dielectric {
             ));
             // 但是图上有明显的一圈一圈的杂质，不知道是什么原因
             // 破案了，是浮点数精度的那个问题。解决了浮点数精度问题就好了
+        }
+    }
+}
+
+// 材质，直接按uv和空间坐标返回颜色
+pub trait Texture: Send + Sync + Debug {
+    fn value(&self, uv: &(f64, f64), point: &Vec3) -> Vec3;
+}
+
+#[derive(Clone, Debug)]
+pub struct SolidColor {
+    color: Vec3,
+}
+
+impl SolidColor {
+    pub fn new(color: Vec3) -> Self {
+        Self { color: color }
+    }
+}
+
+impl Texture for SolidColor {
+    fn value(&self, uv: &(f64, f64), point: &Vec3) -> Vec3 {
+        return self.color.clone();
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct CheckerTexture {
+    black: Arc<dyn Texture>,
+    white: Arc<dyn Texture>,
+}
+
+impl CheckerTexture {
+    pub fn new<T>(black: T, white: T) -> Self
+    where
+        T: Into<Arc<dyn Texture>>,
+    {
+        Self {
+            black: black.into(),
+            white: white.into(),
+        }
+    }
+}
+
+impl Texture for CheckerTexture {
+    fn value(&self, uv: &(f64, f64), point: &Vec3) -> Vec3 {
+        // let sine = (10.0 * point.x()).sin() * (10.0 * point.y()).sin() * (10.0 * point.z()).sin(); // 直接按空间绝对坐标来决定用black还是white材质有点奇怪
+        let sine = (2.0 * PI * 10.0 * uv.0).sin() * (2.0 * PI * 10.0 * uv.1).sin(); // 频率100.0 m^{-1}，也就是每米有100个黑白四方格单位
+        if sine > 0.0 {
+            return self.black.value(uv, point);
+        } else {
+            return self.white.value(uv, point);
         }
     }
 }

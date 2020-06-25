@@ -2,7 +2,6 @@ use crate::material::Material;
 use crate::ray::Hit;
 use crate::ray::HitRecord;
 use crate::ray::Ray;
-use crate::vec3::Vec3;
 use std::sync::Arc;
 
 #[derive(Clone, Debug)]
@@ -34,12 +33,13 @@ where
 {
     fn hit(&self, ray: &Ray) -> Option<HitRecord> {
         if let Some(geometry) = &self.geometry {
-            if let Some(hitRecord) = geometry.hit(ray) {
+            if let Some(record) = geometry.hit(ray) {
                 let res = HitRecord::new(
-                    hitRecord.t(),
-                    *hitRecord.intersection(),
-                    *hitRecord.normal(),
+                    record.t(),
+                    *record.intersection(),
+                    *record.normal(),
                     self.material.clone(),
+                    *record.uv(),
                 );
                 return Some(res);
             } else {

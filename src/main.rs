@@ -11,9 +11,12 @@ mod vec3;
 use crate::camera::Camera; // 非要把trait也import进来才能调用trait方法
 use crate::camera::PerspectiveCamera;
 use crate::geometry::Sphere;
+use crate::material::CheckerTexture;
 use crate::material::Dielectric;
 use crate::material::Lambertian;
 use crate::material::Metal;
+use crate::material::Texture;
+use crate::ray::Hit;
 use crate::render::color;
 use crate::sprite::Sprite;
 use crate::vec3::Vec3;
@@ -36,33 +39,23 @@ fn main() {
     println!("{:?} {:?}", width, height);
     println!("255");
 
-    let lowerLeft = Vec3::new(-2.0, -1.0, -1.0);
-    let horizontal = Vec3::new(4.0, 0.0, 0.0);
-    let vertical = Vec3::new(0.0, 2.0, 0.0);
-    let origin = Vec3::new(0.0, 0.0, 0.0);
+    let texture: Arc<dyn Texture> = Arc::new(CheckerTexture::new(
+        Vec3::new(0.2, 0.3, 0.1),
+        Vec3::new(0.9, 0.9, 0.9),
+    ));
 
-    // 这里如果把Hit声明为Send + Sync的子trait，就不会报错
-    // let mut world: Vec<Box<dyn Hit>> = vec![
-    //     Box::new(Sprite::new(
-    //         Some(Arc::new(Sphere::new(Vec3::new(0.0, 0.0, -1.0), 0.5))),
-    //         Some(Arc::new(Lambertian::new(Vec3::new(0.1, 0.2, 0.5)))),
-    //     )),
-    //     Box::new(Sprite::new(
-    //         Some(Arc::new(Sphere::new(Vec3::new(0.0, -100.5, -1.0), 100.0))),
-    //         Some(Arc::new(Lambertian::new(Vec3::new(0.8, 0.8, 0.0)))),
-    //     )),
-    //     Box::new(Sprite::new(
-    //         Some(Arc::new(Sphere::new(Vec3::new(1.0, 0.0, -1.0), 0.5))),
-    //         Some(Arc::new(Metal::new(Vec3::new(0.8, 0.6, 0.2), 0.0))),
-    //     )),
-    //     Box::new(Sprite::new(
-    //         Some(Arc::new(Sphere::new(Vec3::new(-1.0, 0.0, -1.0), 0.5))),
-    //         Some(Arc::new(Dielectric::new(1.5))),
-    //     )),
-    // ];
-    // let world = Arc::new(world);
-    let world = Arc::new(randomScene());
-    // eprintln!("{:#?}", world);
+    let mut world: Vec<Box<dyn Hit>> = vec![
+        Box::new(Sprite::new(
+            Some(Arc::new(Sphere::new(Vec3::new(0.0, -10.0, 0.0), 10.0))),
+            Some(Arc::new(Lambertian::new(texture.clone()))),
+        )),
+        Box::new(Sprite::new(
+            Some(Arc::new(Sphere::new(Vec3::new(0.0, 10.0, 0.0), 10.0))),
+            Some(Arc::new(Lambertian::new(texture.clone()))),
+        )),
+    ];
+    let world = Arc::new(world);
+    // let world = Arc::new(randomScene());
 
     let eye = Vec3::new(13.0, 2.0, 3.0);
     let center = Vec3::new(0.0, 0.0, 0.0);
@@ -151,12 +144,11 @@ fn randomScene() -> BoundingVolumeHierarchyNode<AxisAlignedBoundingBox> {
 
             if (center - Vec3::new(4.0, 0.2, 0.0)).length() > 0.9 {
                 if whichMaterial < 0.3 {
-                    let mut albedo = Vec3::new(1.0, 0.0, 0.0);
-                    if whichMaterial < 0.10 {
-                        albedo = Vec3::new(0.0, 0.0, 0.0);
+                    let albedo = if whichMaterial < 0.10 {
+                        Vec3::new(0.0, 0.0, 0.0)
                     } else {
-                        albedo = Vec3::new(1.0, 1.0, 1.0);
-                    }
+                        Vec3::new(1.0, 1.0, 1.0)
+                    };
 
                     scene.push(Arc::new(Sprite::new(
                         Some(Arc::new(Sphere::new(center, 0.2))),
