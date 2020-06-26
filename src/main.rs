@@ -13,6 +13,7 @@ use crate::camera::PerspectiveCamera;
 use crate::geometry::Sphere;
 use crate::material::CheckerTexture;
 use crate::material::Dielectric;
+use crate::material::DiffuseLight;
 use crate::material::ImageTexture;
 use crate::material::Lambertian;
 use crate::material::Metal;
@@ -40,22 +41,6 @@ fn main() {
     println!("{:?} {:?}", width, height);
     println!("255");
 
-    let texture: Arc<dyn Texture> = Arc::new(CheckerTexture::new(
-        Vec3::new(0.2, 0.3, 0.1),
-        Vec3::new(0.9, 0.9, 0.9),
-    ));
-
-    // let mut world: Vec<Box<dyn Hit>> = vec![
-    //     Box::new(Sprite::new(
-    //         Some(Arc::new(Sphere::new(Vec3::new(0.0, -10.0, 0.0), 10.0))),
-    //         Some(Arc::new(Lambertian::new(texture.clone()))),
-    //     )),
-    //     Box::new(Sprite::new(
-    //         Some(Arc::new(Sphere::new(Vec3::new(0.0, 10.0, 0.0), 10.0))),
-    //         Some(Arc::new(Lambertian::new(texture.clone()))),
-    //     )),
-    // ];
-
     let image = Arc::new(image::open("./earthmap.jpg").unwrap());
     let mapping = move |uv: &(f64, f64)| -> Vec3 {
         let image = image.clone();
@@ -73,30 +58,43 @@ fn main() {
     };
     let texture: Arc<dyn Texture> = Arc::new(ImageTexture::new(mapping));
 
-    let world: Vec<Box<dyn Hit>> = vec![Box::new(Sprite::new(
-        Some(Arc::new(Sphere::new(Vec3::new(0.0, 0.0, 0.0), 2.0))),
-        Some(Arc::new(Lambertian::new(texture))),
-    ))];
+    let world: Vec<Box<dyn Hit>> = vec![
+        Box::new(Sprite::new(
+            Some(Arc::new(Sphere::new(Vec3::new(0.0, -1000.0, 0.0), 1000.0))),
+            Some(Arc::new(Lambertian::new(texture.clone()))),
+        )),
+        Box::new(Sprite::new(
+            Some(Arc::new(Sphere::new(Vec3::new(0.0, 2.0, 0.0), 2.0))),
+            Some(Arc::new(Lambertian::new(texture.clone()))),
+        )),
+        Box::new(Sprite::new(
+            Some(Arc::new(Sphere::new(Vec3::new(0.0, 7.0, 0.0), 2.0))),
+            Some(Arc::new(DiffuseLight::new(Vec3::new(4.0, 4.0, 4.0)))),
+        )),
+        // Box::new(Sprite::new(
+        //     Some(Arc::new(Sphere::new(Vec3::new(0.0, 0.0, 0.0), 2000.0))),
+        //     Some(Arc::new(Lambertian::new(Vec3::new(0.0, 0.0, 0.0)))),
+        // )), // 天空球
+    ];
     let world = Arc::new(world);
     // let world = Arc::new(randomScene());
 
-    let eye = Vec3::new(0.0, 0.0, 15.0);
-    let center = Vec3::new(0.0, 0.0, 0.0);
+    let eye = Vec3::new(0.0, 2.0, 8.0);
+    let center = Vec3::new(0.0, 2.0, 0.0);
     let up = Vec3::new(0.0, 1.0, 0.0);
 
     let camera = PerspectiveCamera::new(
         eye,
         center,
         up,
-        (20.0 as f64).to_radians(),
+        (60.0 as f64).to_radians(),
         width as f64 / height as f64,
         15.0,
-        0.05,
+        0.0,
     );
     let camera = Arc::new(camera);
 
-    // 书上这个设置的是100，但是我调成128都没法达到书上那个图那么少的噪点……
-    // 因为被浮点数精度坑了，不可能会有这么多噪点的
+    // 黑色背景下噪点很多，不知道是什么问题
     let subPixelSampleCount = 100; // 每个pixel细分成多少个sub pixel
 
     let (sender, receiver) = std::sync::mpsc::channel();

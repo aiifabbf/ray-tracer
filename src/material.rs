@@ -10,6 +10,11 @@ use std::sync::Arc;
 pub trait Material: Send + Sync + Debug {
     fn scatter(&self, rayIn: &Ray, hitRecord: &HitRecord) -> Option<(Ray, Vec3)>;
     // 我觉得这里有点问题，真实世界里一束入射光会散射出多束反射光，但是这里只会返回一束光，以后怎么扩展成多束光呢
+
+    fn emitted(&self, uv: &(f64, f64), point: &Vec3) -> Vec3 {
+        // 这里纠结了一下要不要搞成Option<Vec3>
+        return Vec3::new(0.0, 0.0, 0.0); // 默认不发光
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -163,7 +168,7 @@ impl Material for Dielectric {
     }
 }
 
-// 材质，直接按uv和空间坐标返回颜色
+// 纹理，直接按uv和空间坐标返回颜色
 pub trait Texture: Send + Sync + Debug {
     fn value(&self, uv: &(f64, f64), point: &Vec3) -> Vec3;
 }
@@ -225,6 +230,7 @@ impl<T> ImageTexture<T> {
     }
 }
 
+// 不知道怎么存图片数据，让外层处理吧
 impl<T> Texture for ImageTexture<T>
 where
     T: (Fn(&(f64, f64)) -> Vec3) + Send + Sync,
@@ -237,5 +243,32 @@ where
 impl<T> Debug for ImageTexture<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "ImageTexture")
+    }
+}
+
+// 发光材质
+#[derive(Debug, Clone)]
+pub struct DiffuseLight {
+    emission: Arc<dyn Texture>,
+}
+
+impl DiffuseLight {
+    pub fn new<T>(emission: T) -> Self
+    where
+        T: Into<Arc<dyn Texture>>,
+    {
+        Self {
+            emission: emission.into(),
+        }
+    }
+}
+
+impl Material for DiffuseLight {
+    fn scatter(&self, rayIn: &Ray, hitRecord: &HitRecord) -> Option<(Ray, Vec3)> {
+        return None;
+    }
+
+    fn emitted(&self, uv: &(f64, f64), point: &Vec3) -> Vec3 {
+        return self.emission.value(uv, point);
     }
 }
