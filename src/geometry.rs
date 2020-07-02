@@ -36,10 +36,10 @@ impl Sphere {
     // }
     // 我觉得书上的uv有点怪，y+应该是朝上的
 
-    // <https://en.wikipedia.org/wiki/UV_mapping>
+    // 和 <https://en.wikipedia.org/wiki/UV_mapping> 的还不太一样，v轴我这边和它是反过来的，这样的话地球贴图在球面上垂直方向才是正的
     fn unitSphereUv(point: &Vec3) -> (f64, f64) {
         let u = 0.5 + (point.x().atan2(point.z())) / (2.0 * PI);
-        let v = 0.5 - point.y().asin() / PI;
+        let v = 1.0 - point.y().acos() / PI; // acos的值域是[0, pi]
         return (u, v);
     }
 }
@@ -102,3 +102,56 @@ impl Hit for Vec<Box<dyn Hit>> {
 // 但是我总觉得哪里怪怪的，Arc并不能使本身不Send也不Sync的对象变得Send和Sync，但是RwLock能使本身不Sync的对象变得Sync。
 // 我错了，RwLock<T>要求T本身是Send + Sync的，然后RwLock<T>整个变成Send + Sync，只有Mutex<T>只要求T本身只要Send就可以让Mutex<T>整个变得Send + Sync。
 // 这里有一个解释 <https://stackoverflow.com/questions/50704279/when-or-why-should-i-use-a-mutex-over-an-rwlock>
+
+// 终于到矩形了
+#[derive(Debug, Clone)]
+pub struct Rectangle {
+    a: (f64, f64),
+    b: (f64, f64),
+    z: f64,
+}
+// 但我觉得这样的定义不太好，最好只要width和height，位移旋转都通过后面的transform来实现比较好
+
+impl Rectangle {
+    pub fn new(a: (f64, f64), b: (f64, f64), z: f64) -> Self {
+        Self { a: a, b: b, z: z }
+    }
+
+    pub fn a(&self) -> &(f64, f64) {
+        return &self.a;
+    }
+
+    pub fn b(&self) -> &(f64, f64) {
+        return &self.b;
+    }
+
+    pub fn z(&self) -> f64 {
+        return self.z;
+    }
+}
+
+impl Hit for Rectangle {
+    fn hit(&self, ray: &Ray) -> Option<HitRecord> {
+        let t = (self.z - ray.origin().z()) / ray.direction().z();
+        if t.is_infinite() || t.is_nan() {
+            return None;
+        }
+
+        let x = ray.origin().x() + ray.direction().x() * t;
+        let y = ray.origin().y() + ray.direction().y() * t;
+        if x < self.a.0 || x > self.b.0 || y < self.a.1 || y > self.b.1 {
+            return None;
+        }
+
+        let u = (x - self.a.0) / (self.b.0 - self.a.0);
+        let v = (y - self.a.1) / (self.b.1 - self.a.1);
+
+        return Some(HitRecord::new(
+            t,
+            ray.at(t),
+            Vec3::new(0.0, 0.0, 1.0),
+            None,
+            (u, v),
+        ));
+    }
+}

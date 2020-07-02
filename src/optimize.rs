@@ -1,3 +1,4 @@
+use crate::geometry::Rectangle;
 use crate::geometry::Sphere;
 use crate::ray::Hit;
 use crate::ray::HitRecord;
@@ -106,9 +107,19 @@ impl Bound<AxisAlignedBoundingBox> for Sphere {
     }
 }
 
+impl Bound<AxisAlignedBoundingBox> for Rectangle {
+    fn bound(&self) -> Option<AxisAlignedBoundingBox> {
+        return Some(AxisAlignedBoundingBox::new(
+            Vec3::new(self.a().0, self.a().1, self.z() - 1e-6),
+            Vec3::new(self.b().0, self.b().1, self.z() + 1e+6),
+        ));
+    }
+}
+
 impl<T> Bound<AxisAlignedBoundingBox> for Sprite<T>
 where
     T: Bound<AxisAlignedBoundingBox>,
+    // U: Material, // 可是这里根本和material没关系啊
 {
     fn bound(&self) -> Option<AxisAlignedBoundingBox> {
         if let Some(geometry) = self.geometry() {

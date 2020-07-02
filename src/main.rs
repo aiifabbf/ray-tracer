@@ -1,5 +1,6 @@
 mod camera;
 mod geometry;
+mod mat4;
 mod material;
 mod optimize;
 mod ray;
@@ -7,10 +8,13 @@ mod render;
 mod sprite;
 mod util;
 mod vec3;
+mod vec4;
 
 use crate::camera::Camera; // 非要把trait也import进来才能调用trait方法
 use crate::camera::PerspectiveCamera;
+use crate::geometry::Rectangle;
 use crate::geometry::Sphere;
+use crate::mat4::Mat4;
 use crate::material::CheckerTexture;
 use crate::material::Dielectric;
 use crate::material::DiffuseLight;
@@ -48,8 +52,8 @@ fn main() {
         let (u, v) = uv;
         let pixel = buffer.get_pixel(
             (u * buffer.width() as f64) as u32,
-            (v * buffer.height() as f64) as u32,
-        );
+            ((1.0 - v) * buffer.height() as f64) as u32,
+        ); // image的原点是图像的左上角，而uv坐标系里原点是左下角，所以这里要颠倒一下
         return Vec3::new(
             pixel[0] as f64 / 255.0,
             pixel[1] as f64 / 255.0,
@@ -63,23 +67,40 @@ fn main() {
             Some(Arc::new(Sphere::new(Vec3::new(0.0, -1000.0, 0.0), 1000.0))),
             Some(Arc::new(Lambertian::new(texture.clone()))),
         )),
-        Box::new(Sprite::new(
-            Some(Arc::new(Sphere::new(Vec3::new(0.0, 2.0, 0.0), 2.0))),
-            Some(Arc::new(Lambertian::new(texture.clone()))),
-        )),
-        Box::new(Sprite::new(
-            Some(Arc::new(Sphere::new(Vec3::new(0.0, 7.0, 0.0), 2.0))),
-            Some(Arc::new(DiffuseLight::new(Vec3::new(4.0, 4.0, 4.0)))),
-        )),
         // Box::new(Sprite::new(
-        //     Some(Arc::new(Sphere::new(Vec3::new(0.0, 0.0, 0.0), 2000.0))),
-        //     Some(Arc::new(Lambertian::new(Vec3::new(0.0, 0.0, 0.0)))),
-        // )), // 天空球
+        //     Some(Arc::new(Sphere::new(Vec3::new(0.0, 2.0, 0.0), 2.0))),
+        //     Some(Arc::new(Lambertian::new(texture.clone()))),
+        // )),
+        Box::new(
+            Sprite::builder()
+                .geometry(Sphere::new(Vec3::new(0.0, 2.0, 0.0), 2.0))
+                .material(Arc::new(Lambertian::new(texture.clone())))
+                .transform(Mat4::rotation(90.0, Vec3::ey()))
+                .build(),
+        ), // 地球转动了90deg，这时候应该能看到非洲
+        // Box::new(Sprite::new(
+        //     Some(Arc::new(Sphere::new(Vec3::new(0.0, 7.0, 0.0), 2.0))),
+        //     Some(Arc::new(DiffuseLight::new(Vec3::new(4.0, 4.0, 4.0)))),
+        // )),
+        // Box::new(Sprite::new(
+        //     Some(Arc::new(Rectangle::new((3.0, 1.0), (5.0, 3.0), -2.0))),
+        //     Some(Arc::new(DiffuseLight::new(texture.clone()))),
+        // )),
+        Box::new(
+            Sprite::builder()
+                .geometry(Rectangle::new((3.0, 1.0), (5.0, 3.0), -2.0))
+                .material(Arc::new(DiffuseLight::new(Vec3::new(4.0, 4.0, 4.0))))
+                .transform(Mat4::translation(Vec3::new(0.0, 0.0, -1.0))) // 这下光源应该在z = -7的位置
+                .build(),
+        ), // Box::new(Sprite::new(
+           //     Some(Arc::new(Sphere::new(Vec3::new(0.0, 0.0, 0.0), 2000.0))),
+           //     Some(Arc::new(Lambertian::new(Vec3::new(0.0, 0.0, 0.0)))),
+           // )), // 天空球
     ];
     let world = Arc::new(world);
     // let world = Arc::new(randomScene());
 
-    let eye = Vec3::new(0.0, 2.0, 8.0);
+    let eye = Vec3::new(6.0, 2.0, 0.0);
     let center = Vec3::new(0.0, 2.0, 0.0);
     let up = Vec3::new(0.0, 1.0, 0.0);
 
@@ -139,9 +160,9 @@ fn main() {
             let pixel = &buffer[y][x];
             println!(
                 "{:?} {:?} {:?}",
-                (pixel.r().sqrt() * 255.0) as usize,
-                (pixel.g().sqrt() * 255.0) as usize,
-                (pixel.b().sqrt() * 255.0) as usize,
+                (pixel.r().sqrt() * 255.0).min(255.0) as usize,
+                (pixel.g().sqrt() * 255.0).min(255.0) as usize,
+                (pixel.b().sqrt() * 255.0).min(255.0) as usize, // 有时候会发现有的像素的rgb值超过了255
             );
         }
     }

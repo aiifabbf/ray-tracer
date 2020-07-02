@@ -1,3 +1,5 @@
+use crate::vec4::Vec4;
+
 use std::ops::*;
 
 #[derive(Copy, Debug, Clone)]
@@ -34,6 +36,41 @@ impl Vec3 {
 
     pub fn b(&self) -> f64 {
         return self.z;
+    }
+
+    // 基底
+    pub fn ex() -> Self {
+        Self {
+            x: 1.0,
+            y: 0.0,
+            z: 0.0,
+        }
+    }
+
+    pub fn ey() -> Self {
+        Self {
+            x: 0.0,
+            y: 1.0,
+            z: 0.0,
+        }
+    }
+
+    pub fn ez() -> Self {
+        Self {
+            x: 0.0,
+            y: 0.0,
+            z: 1.0,
+        }
+    }
+
+    // 变成齐次坐标里的点
+    pub fn xyz1(&self) -> Vec4 {
+        Vec4::new(self.x, self.y, self.z, 1.0)
+    }
+
+    // 变成齐次坐标里的向量
+    pub fn xyz0(&self) -> Vec4 {
+        Vec4::new(self.x, self.y, self.z, 0.0)
     }
 
     pub fn dot(&self, other: &Self) -> f64 {
