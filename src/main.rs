@@ -39,7 +39,7 @@ use rand::Rng; // generator.gen_range()居然会用到这个，匪夷所思
 use std::sync::Arc;
 
 fn main() {
-    let width = 1600;
+    let width = 800;
     let height = 800;
     println!("P3");
     println!("{:?} {:?}", width, height);
@@ -60,63 +60,91 @@ fn main() {
             pixel[2] as f64 / 255.0,
         );
     };
-    let texture: Arc<dyn Texture> = Arc::new(ImageTexture::new(mapping));
+    // let texture: Arc<dyn Texture> = Arc::new(ImageTexture::new(mapping));
+
+    let redMaterial = Arc::new(Lambertian::new(Vec3::new(0.65, 0.05, 0.05)));
+    let whiteMaterial = Arc::new(Lambertian::new(Vec3::new(0.73, 0.73, 0.73)));
+    let greenMaterial = Arc::new(Lambertian::new(Vec3::new(0.12, 0.45, 0.15)));
+    let lightMaterial = Arc::new(DiffuseLight::new(Vec3::new(15.0, 15.0, 15.0)));
+
+    let greenWall = Sprite::builder()
+        .geometry(Rectangle::new(555.0, 555.0))
+        // .geometry(Sphere::new(Vec3::new(0.0, 0.0, 0.0), 555.0 / 2.0))
+        .material(greenMaterial.clone())
+        .transform(
+            Mat4::translation(Vec3::new(555.0, 555.0 / 2.0, 555.0 / 2.0))
+                .multiplied(&Mat4::rotation((-90.0 as f64).to_radians(), Vec3::ey())),
+        )
+        .build();
+    let redWall = Sprite::builder()
+        .geometry(Rectangle::new(555.0, 555.0))
+        .material(redMaterial.clone())
+        .transform(
+            Mat4::translation(Vec3::new(0.0, 555.0 / 2.0, 555.0 / 2.0))
+                .multiplied(&Mat4::rotation((90.0 as f64).to_radians(), Vec3::ey())),
+        )
+        .build();
+    let light = Sprite::builder()
+        .geometry(Rectangle::new(130.0, 105.0))
+        .material(lightMaterial.clone())
+        .transform(
+            Mat4::translation(Vec3::new(555.0 / 2.0, 554.0, 555.0 / 2.0))
+                .multiplied(&Mat4::rotation((90.0 as f64).to_radians(), Vec3::ex())),
+        )
+        .build();
+    let floor = Sprite::builder()
+        .geometry(Rectangle::new(555.0, 555.0))
+        .material(whiteMaterial.clone())
+        .transform(
+            Mat4::translation(Vec3::new(555.0 / 2.0, 0.0, 550.0 / 2.0))
+                .multiplied(&Mat4::rotation((-90.0 as f64).to_radians(), Vec3::ex())),
+        )
+        .build();
+    let ceiling = Sprite::builder()
+        .geometry(Rectangle::new(555.0, 555.0))
+        .material(whiteMaterial.clone())
+        .transform(
+            Mat4::translation(Vec3::new(555.0 / 2.0, 555.0, 550.0 / 2.0))
+                .multiplied(&Mat4::rotation((90.0 as f64).to_radians(), Vec3::ex())),
+        )
+        .build();
+    let backWall = Sprite::builder()
+        .geometry(Rectangle::new(555.0, 555.0))
+        .material(whiteMaterial.clone())
+        .transform(
+            Mat4::translation(Vec3::new(555.0 / 2.0, 555.0 / 2.0, 555.0))
+                .multiplied(&Mat4::rotation((180.0 as f64).to_radians(), Vec3::ey())),
+        )
+        .build();
 
     let world: Vec<Box<dyn Hit>> = vec![
-        Box::new(Sprite::new(
-            Some(Arc::new(Sphere::new(Vec3::new(0.0, -1000.0, 0.0), 1000.0))),
-            Some(Arc::new(Lambertian::new(texture.clone()))),
-        )),
-        // Box::new(Sprite::new(
-        //     Some(Arc::new(Sphere::new(Vec3::new(0.0, 2.0, 0.0), 2.0))),
-        //     Some(Arc::new(Lambertian::new(texture.clone()))),
-        // )),
-        Box::new(
-            Sprite::builder()
-                .geometry(Sphere::new(Vec3::new(0.0, 2.0, 0.0), 2.0))
-                .material(Arc::new(Lambertian::new(texture.clone())))
-                .transform(Mat4::rotation(90.0, Vec3::ey()))
-                .build(),
-        ), // 地球转动了90deg，这时候应该能看到非洲
-        // Box::new(Sprite::new(
-        //     Some(Arc::new(Sphere::new(Vec3::new(0.0, 7.0, 0.0), 2.0))),
-        //     Some(Arc::new(DiffuseLight::new(Vec3::new(4.0, 4.0, 4.0)))),
-        // )),
-        // Box::new(Sprite::new(
-        //     Some(Arc::new(Rectangle::new((3.0, 1.0), (5.0, 3.0), -2.0))),
-        //     Some(Arc::new(DiffuseLight::new(texture.clone()))),
-        // )),
-        Box::new(
-            Sprite::builder()
-                .geometry(Rectangle::new((3.0, 1.0), (5.0, 3.0), -2.0))
-                .material(Arc::new(DiffuseLight::new(Vec3::new(4.0, 4.0, 4.0))))
-                .transform(Mat4::translation(Vec3::new(0.0, 0.0, -1.0))) // 这下光源应该在z = -7的位置
-                .build(),
-        ), // Box::new(Sprite::new(
-           //     Some(Arc::new(Sphere::new(Vec3::new(0.0, 0.0, 0.0), 2000.0))),
-           //     Some(Arc::new(Lambertian::new(Vec3::new(0.0, 0.0, 0.0)))),
-           // )), // 天空球
+        Box::new(greenWall),
+        Box::new(redWall),
+        Box::new(light),
+        Box::new(floor),
+        Box::new(ceiling),
+        Box::new(backWall),
     ];
     let world = Arc::new(world);
     // let world = Arc::new(randomScene());
 
-    let eye = Vec3::new(6.0, 2.0, 0.0);
-    let center = Vec3::new(0.0, 2.0, 0.0);
+    let eye = Vec3::new(555.0 / 2.0, 550.0 / 2.0, -800.0);
+    let center = Vec3::new(555.0 / 2.0, 555.0 / 2.0, 0.0);
     let up = Vec3::new(0.0, 1.0, 0.0);
 
     let camera = PerspectiveCamera::new(
         eye,
         center,
         up,
-        (60.0 as f64).to_radians(),
+        (40.0 as f64).to_radians(),
         width as f64 / height as f64,
-        15.0,
+        10.0,
         0.0,
     );
     let camera = Arc::new(camera);
 
     // 黑色背景下噪点很多，不知道是什么问题
-    let subPixelSampleCount = 100; // 每个pixel细分成多少个sub pixel
+    let subPixelSampleCount = 256; // 每个pixel细分成多少个sub pixel
 
     let (sender, receiver) = std::sync::mpsc::channel();
     let mut buffer = vec![vec![Vec3::new(0.0, 0.0, 0.0); width]; height];
@@ -151,6 +179,7 @@ fn main() {
     for _ in (0..height).rev() {
         for _ in 0..width {
             let (x, y, pixel) = receiver.recv().unwrap();
+            // eprintln!("{:#?} {:#?} {:#?}", y, x, pixel);
             buffer[y][x] = pixel;
         }
     }
@@ -166,94 +195,4 @@ fn main() {
             );
         }
     }
-}
-
-fn randomScene() -> BoundingVolumeHierarchyNode<AxisAlignedBoundingBox> {
-    let mut scene: Vec<Arc<dyn Bound<AxisAlignedBoundingBox>>> = vec![Arc::new(Sprite::new(
-        Some(Arc::new(Sphere::new(Vec3::new(0.0, -1000.0, 0.0), 1000.0))),
-        Some(Arc::new(Metal::new(Vec3::new(0.5, 0.5, 0.5), 0.5))),
-    ))];
-
-    let mut generator = thread_rng();
-
-    for a in -11..11 {
-        for b in -11..11 {
-            let whichMaterial = generator.gen_range(0.0, 1.0);
-            let center = Vec3::new(
-                a as f64 + 0.9 * generator.gen_range(0.0, 1.0),
-                0.2,
-                b as f64 + 0.9 * generator.gen_range(0.0, 1.0),
-            );
-
-            if (center - Vec3::new(4.0, 0.2, 0.0)).length() > 0.9 {
-                if whichMaterial < 0.3 {
-                    let albedo = if whichMaterial < 0.10 {
-                        Vec3::new(0.0, 0.0, 0.0)
-                    } else {
-                        Vec3::new(1.0, 1.0, 1.0)
-                    };
-
-                    scene.push(Arc::new(Sprite::new(
-                        Some(Arc::new(Sphere::new(center, 0.2))),
-                        Some(Arc::new(Lambertian::new(albedo))),
-                    )));
-                } else if whichMaterial < 0.6 {
-                    let albedo = Vec3::new(1.0, 0.0, 0.0);
-                    let fuzziness = generator.gen_range(0.0, 0.5);
-
-                    scene.push(Arc::new(Sprite::new(
-                        Some(Arc::new(Sphere::new(center, 0.2))),
-                        Some(Arc::new(Metal::new(albedo, fuzziness))),
-                    )));
-                } else {
-                    scene.push(Arc::new(Sprite::new(
-                        Some(Arc::new(Sphere::new(center, 0.2))),
-                        Some(Arc::new(Dielectric::new(1.5))),
-                    )));
-                }
-            }
-        }
-    }
-
-    let image = Arc::new(image::open("./earthmap.jpg").unwrap());
-    let mapping = move |uv: &(f64, f64)| -> Vec3 {
-        let image = image.clone();
-        let buffer = image.as_bgr8().unwrap();
-        let (u, v) = uv;
-        let pixel = buffer.get_pixel(
-            (u * buffer.width() as f64) as u32,
-            ((1.0 - v) * buffer.height() as f64) as u32,
-        );
-        return Vec3::new(
-            pixel[0] as f64 / 255.0,
-            pixel[1] as f64 / 255.0,
-            pixel[2] as f64 / 255.0,
-        );
-    };
-
-    let texture: Arc<dyn Texture> = Arc::new(ImageTexture::new(mapping));
-
-    scene.extend(
-        vec![
-            Arc::new(Sprite::new(
-                Some(Arc::new(Sphere::new(Vec3::new(-4.0, 1.0, 0.0), 1.0))),
-                Some(Arc::new(Lambertian::new(texture))),
-            )) as Arc<dyn Bound<AxisAlignedBoundingBox>>,
-            Arc::new(Sprite::new(
-                Some(Arc::new(Sphere::new(Vec3::new(4.0, 1.0, 0.0), 1.0))),
-                Some(Arc::new(Metal::new(Vec3::new(0.7, 0.6, 0.5), 0.0))),
-            )),
-            Arc::new(Sprite::new(
-                Some(Arc::new(Sphere::new(Vec3::new(0.0, 1.0, 0.0), 1.0))),
-                Some(Arc::new(Dielectric::new(1.5))),
-            )),
-        ]
-        .into_iter(),
-    );
-
-    for v in scene.iter() {
-        eprintln!("{:#?}", v.bound());
-    }
-
-    return BoundingVolumeHierarchyNode::new(scene).unwrap();
 }

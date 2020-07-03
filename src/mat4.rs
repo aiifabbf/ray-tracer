@@ -79,7 +79,7 @@ impl Mat4 {
         return Self { a: a };
     }
 
-    // 传统意义上的矩阵乘法（不是piecewise）
+    // 传统意义上的矩阵乘法（不是piecewise），注意是self * other，不是other * self
     // <http://glmatrix.net/docs/mat4.js.html#line502>
     // 矩阵乘向量的函数我写在Vec4.transformed里面了
     pub fn multiplied(&self, other: &Self) -> Self {

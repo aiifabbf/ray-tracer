@@ -7,20 +7,12 @@ use std::f64::consts::PI;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Sphere {
-    center: Vec3,
     radius: f64,
 }
 
 impl Sphere {
-    pub fn new(center: Vec3, radius: f64) -> Self {
-        Self {
-            center: center,
-            radius: radius,
-        }
-    }
-
-    pub fn center(&self) -> &Vec3 {
-        return &self.center;
+    pub fn new(radius: f64) -> Self {
+        Self { radius: radius }
     }
 
     pub fn radius(&self) -> f64 {
@@ -46,7 +38,8 @@ impl Sphere {
 
 impl Hit for Sphere {
     fn hit(&self, ray: &Ray) -> Option<HitRecord> {
-        let oc = *ray.origin() - self.center;
+        let center = Vec3::new(0.0, 0.0, 0.0);
+        let oc = *ray.origin() - center;
         let a = ray.direction().dot(ray.direction());
         let b = oc.dot(ray.direction()) * 2.0;
         let c = oc.dot(&oc) - self.radius * self.radius;
@@ -68,8 +61,8 @@ impl Hit for Sphere {
                 return None;
             }
             let intersection = ray.at(t);
-            let normal = ((intersection - self.center) / self.radius).normalized();
-            let uv = Sphere::unitSphereUv(&((intersection - *self.center()) / self.radius()));
+            let normal = ((intersection - center) / self.radius).normalized();
+            let uv = Sphere::unitSphereUv(&((intersection - center) / self.radius()));
             let record = HitRecord::new(t, intersection, normal, None, uv);
             return Some(record);
         }
@@ -106,45 +99,50 @@ impl Hit for Vec<Box<dyn Hit>> {
 // 终于到矩形了
 #[derive(Debug, Clone)]
 pub struct Rectangle {
-    a: (f64, f64),
-    b: (f64, f64),
-    z: f64,
+    width: f64,
+    height: f64,
 }
 // 但我觉得这样的定义不太好，最好只要width和height，位移旋转都通过后面的transform来实现比较好
+// 甚至还可以啥都不要，只给一个单位矩形，长宽都用变换实现
+// 改好了
 
 impl Rectangle {
-    pub fn new(a: (f64, f64), b: (f64, f64), z: f64) -> Self {
-        Self { a: a, b: b, z: z }
+    pub fn new(width: f64, height: f64) -> Self {
+        Self {
+            width: width,
+            height: height,
+        }
     }
 
-    pub fn a(&self) -> &(f64, f64) {
-        return &self.a;
+    pub fn width(&self) -> f64 {
+        return self.width;
     }
 
-    pub fn b(&self) -> &(f64, f64) {
-        return &self.b;
-    }
-
-    pub fn z(&self) -> f64 {
-        return self.z;
+    pub fn height(&self) -> f64 {
+        return self.height;
     }
 }
 
 impl Hit for Rectangle {
     fn hit(&self, ray: &Ray) -> Option<HitRecord> {
-        let t = (self.z - ray.origin().z()) / ray.direction().z();
-        if t.is_infinite() || t.is_nan() {
+        let z = 0.0;
+        let a = (-self.width / 2.0, -self.height / 2.0);
+        let b = (self.width / 2.0, self.height / 2.0);
+
+        let t = (z - ray.origin().z()) / ray.direction().z();
+        if t.is_infinite() || t.is_nan() || t < 1e-6 {
+            // 又被浮点数精度坑了……不长记性啊
             return None;
         }
 
         let x = ray.origin().x() + ray.direction().x() * t;
         let y = ray.origin().y() + ray.direction().y() * t;
-        if x < self.a.0 || x > self.b.0 || y < self.a.1 || y > self.b.1 {
+        if x < a.0 || x > b.0 || y < a.1 || y > b.1 {
             return None;
         }
 
-        let u = (x - self.a.0) / (self.b.0 - self.a.0);
-        let v = (y - self.a.1) / (self.b.1 - self.a.1);
+        let u = (x - a.0) / (b.0 - a.0);
+        let v = (y - a.1) / (b.1 - a.1);
 
         return Some(HitRecord::new(
             t,

@@ -100,18 +100,24 @@ impl Bound<AxisAlignedBoundingBox> for AxisAlignedBoundingBox {
 
 impl Bound<AxisAlignedBoundingBox> for Sphere {
     fn bound(&self) -> Option<AxisAlignedBoundingBox> {
+        let center = Vec3::new(0.0, 0.0, 0.0);
+
         return Some(AxisAlignedBoundingBox::new(
-            *self.center() - Vec3::new(self.radius(), self.radius(), self.radius()),
-            *self.center() + Vec3::new(self.radius(), self.radius(), self.radius()),
+            center - Vec3::new(self.radius(), self.radius(), self.radius()),
+            center + Vec3::new(self.radius(), self.radius(), self.radius()),
         ));
     }
 }
 
 impl Bound<AxisAlignedBoundingBox> for Rectangle {
     fn bound(&self) -> Option<AxisAlignedBoundingBox> {
+        let z = 0.0;
+        let a = (-self.width() / 2.0, -self.height() / 2.0);
+        let b = (self.width() / 2.0, self.height() / 2.0);
+
         return Some(AxisAlignedBoundingBox::new(
-            Vec3::new(self.a().0, self.a().1, self.z() - 1e-6),
-            Vec3::new(self.b().0, self.b().1, self.z() + 1e+6),
+            Vec3::new(a.0, a.1, z - 1e-6),
+            Vec3::new(b.0, b.1, z + 1e+6),
         ));
     }
 }
@@ -123,6 +129,7 @@ where
 {
     fn bound(&self) -> Option<AxisAlignedBoundingBox> {
         if let Some(geometry) = self.geometry() {
+            // TODO: 现在有了transform，这边要改
             return geometry.bound();
         } else {
             return None;
