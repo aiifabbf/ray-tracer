@@ -81,6 +81,9 @@ where
 {
     fn hit(&self, ray: &Ray) -> Option<HitRecord> {
         if let Some(geometry) = &self.geometry {
+            // 既然geometry.rs里实现了(&Hit, &Mat4).hit()，那么这里其实只要这样写就可以了
+            // return (geometry.as_ref(), self.transform()).hit(ray);
+
             if let Some(inversedTransform) = &self.transform().inversed() {
                 // 原光线反变换
                 let origin = ray.origin().xyz1().transformed(inversedTransform);

@@ -12,6 +12,7 @@ mod vec4;
 
 use crate::camera::Camera; // 非要把trait也import进来才能调用trait方法
 use crate::camera::PerspectiveCamera;
+use crate::geometry::Cube;
 use crate::geometry::Rectangle;
 use crate::geometry::Sphere;
 use crate::mat4::Mat4;
@@ -117,6 +118,33 @@ fn main() {
         )
         .build();
 
+    let frontCube: Sprite<Vec<Box<dyn Hit>>> = Sprite::builder()
+        .geometry(Arc::new(
+            Cube::new(165.0, 165.0, 165.0)
+                .into_iter()
+                .map(|v| Box::new(v) as Box<dyn Hit>)
+                .collect(),
+        ))
+        .material(whiteMaterial.clone())
+        .transform(
+            Mat4::translation(Vec3::new(212.5, 82.5, 147.5))
+                .multiplied(&Mat4::rotation((-18.0 as f64).to_radians(), Vec3::ey())),
+        )
+        .build();
+    let backCube: Sprite<Vec<Box<dyn Hit>>> = Sprite::builder()
+        .geometry(Arc::new(
+            Cube::new(165.0, 330.0, 165.0)
+                .into_iter()
+                .map(|v| Box::new(v) as Box<dyn Hit>)
+                .collect(),
+        ))
+        .material(whiteMaterial.clone())
+        .transform(
+            Mat4::translation(Vec3::new(347.5, 165.0, 377.5))
+                .multiplied(&Mat4::rotation((15.0 as f64).to_radians(), Vec3::ey())),
+        )
+        .build();
+
     let world: Vec<Box<dyn Hit>> = vec![
         Box::new(greenWall),
         Box::new(redWall),
@@ -124,6 +152,8 @@ fn main() {
         Box::new(floor),
         Box::new(ceiling),
         Box::new(backWall),
+        Box::new(frontCube),
+        Box::new(backCube),
     ];
     let world = Arc::new(world);
     // let world = Arc::new(randomScene());

@@ -1,3 +1,4 @@
+use crate::mat4::Mat4;
 use crate::ray::Hit;
 use crate::ray::HitRecord;
 use crate::ray::Ray;
@@ -151,5 +152,84 @@ impl Hit for Rectangle {
             None,
             (u, v),
         ));
+    }
+}
+
+// 实现cube的时候突然发现有个麻烦，transform是只有sprite才有的性质，然而我这里想要用复合几何体，不需要material
+impl<T> Hit for (T, Mat4)
+where
+    T: Hit,
+{
+    fn hit(&self, ray: &Ray) -> Option<HitRecord> {
+        let geometry = &self.0;
+        let transform = &self.1;
+
+        if let Some(inversed) = &transform.inversed() {
+            // 原光线反变换
+            let origin = ray.origin().xyz1().transformed(inversed);
+            let direction = ray.direction().xyz0().transformed(inversed);
+
+            let ray = Ray::new(origin.into(), direction.into());
+
+            if let Some(record) = geometry.hit(&ray) {
+                // 击中后再正变换
+                let intersection = record.intersection().xyz1().transformed(transform);
+                let normal = record.normal().xyz0().transformed(transform);
+
+                let res = HitRecord::new(
+                    record.t(),
+                    intersection.into(),
+                    normal.into(),
+                    None,
+                    *record.uv(),
+                );
+                return Some(res);
+            } else {
+                return None;
+            }
+        } else {
+            // det = 0，说明变换把物体直接拍扁了，这时候怎么处理呢
+            return None;
+        }
+    }
+}
+// 直接把sprite那里的抄过来了。重构的时候要想想怎么用一份代码就行
+
+#[derive(Clone, Debug)]
+pub struct Cube;
+
+impl Cube {
+    pub fn new(width: f64, height: f64, depth: f64) -> Vec<(Rectangle, Mat4)> {
+        return vec![
+            (
+                Rectangle::new(width, height),
+                Mat4::translation(Vec3::new(0.0, 0.0, depth / 2.0)),
+            ), // front
+            (
+                Rectangle::new(depth, height),
+                Mat4::translation(Vec3::new(-width / 2.0, 0.0, 0.0))
+                    .multiplied(&Mat4::rotation((-90.0 as f64).to_radians(), Vec3::ey())),
+            ), // left
+            (
+                Rectangle::new(width, height),
+                Mat4::translation(Vec3::new(0.0, 0.0, -depth / 2.0))
+                    .multiplied(&Mat4::rotation((180.0 as f64).to_radians(), Vec3::ey())),
+            ), // back
+            (
+                Rectangle::new(depth, height),
+                Mat4::translation(Vec3::new(width / 2.0, 0.0, 0.0))
+                    .multiplied(&Mat4::rotation((90.0 as f64).to_radians(), Vec3::ey())),
+            ), // right
+            (
+                Rectangle::new(width, depth),
+                Mat4::translation(Vec3::new(0.0, height / 2.0, 0.0))
+                    .multiplied(&Mat4::rotation((-90.0 as f64).to_radians(), Vec3::ex())),
+            ), // top
+            (
+                Rectangle::new(width, depth),
+                Mat4::translation(Vec3::new(0.0, -height / 2.0, 0.0))
+                    .multiplied(&Mat4::rotation((90.0 as f64).to_radians(), Vec3::ex())),
+            ), // bottom
+        ];
     }
 }

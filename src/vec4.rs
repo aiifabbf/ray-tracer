@@ -39,6 +39,10 @@ impl Vec4 {
         return self.w;
     }
 
+    pub fn xyz(&self) -> Vec3 {
+        return Vec3::new(self.x, self.y, self.z);
+    }
+
     pub fn r(&self) -> f64 {
         return self.x;
     }
