@@ -33,20 +33,22 @@ impl Ray {
 }
 
 #[derive(Clone)]
-pub struct HitRecord {
+pub struct HitRecord<'a> {
     t: f64,
     intersection: Vec3,
     normal: Vec3,
-    material: Option<Arc<dyn Material>>,
+    // material: Option<Arc<dyn Material>>,
+    material: Option<&'a dyn Material>, // 能不能有一天改成ref呢
     uv: (f64, f64),
 }
 
-impl HitRecord {
+impl<'a> HitRecord<'a> {
     pub fn new(
         t: f64,
         intersection: Vec3,
         normal: Vec3,
-        material: Option<Arc<dyn Material>>,
+        // material: Option<Arc<dyn Material>>,
+        material: Option<&'a dyn Material>,
         uv: (f64, f64), // 材质坐标
     ) -> Self {
         Self {
@@ -70,7 +72,8 @@ impl HitRecord {
         return &self.normal;
     }
 
-    pub fn material(&self) -> &Option<Arc<dyn Material>> {
+    // pub fn material(&self) -> &Option<Arc<dyn Material>> {
+    pub fn material(&self) -> &Option<&dyn Material> {
         return &self.material;
     }
 
@@ -83,7 +86,7 @@ pub trait Hit: Send + Sync {
     fn hit(&self, ray: &Ray) -> Option<HitRecord>;
 }
 
-impl Default for HitRecord {
+impl Default for HitRecord<'_> {
     fn default() -> Self {
         Self {
             t: 1.0 / 0.0, // 这里必须是inf，因为bounding box只用来判断有没有hit，不判断hit在哪里

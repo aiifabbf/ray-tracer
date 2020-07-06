@@ -21,6 +21,7 @@ use crate::material::Dielectric;
 use crate::material::DiffuseLight;
 use crate::material::ImageTexture;
 use crate::material::Lambertian;
+use crate::material::Material;
 use crate::material::Metal;
 use crate::material::Texture;
 use crate::ray::Hit;
@@ -38,10 +39,11 @@ use rand::Rng; // generator.gen_range()居然会用到这个，匪夷所思
 // 知道了，因为gen_range是trait方法，所以必须要引入trait才行
 
 use std::sync::Arc;
+use std::sync::Mutex;
 
 fn main() {
-    let width = 800;
-    let height = 800;
+    let width = 500;
+    let height = 500;
     println!("P3");
     println!("{:?} {:?}", width, height);
     println!("255");
@@ -68,9 +70,12 @@ fn main() {
     let greenMaterial = Arc::new(Lambertian::new(Vec3::new(0.12, 0.45, 0.15)));
     let lightMaterial = Arc::new(DiffuseLight::new(Vec3::new(15.0, 15.0, 15.0)));
 
+    let wallGeometry = Arc::new(Rectangle::new(555.0, 555.0)); // 还是需要Arc的，因为要保证引用一直有效
+
     let greenWall = Sprite::builder()
-        .geometry(Rectangle::new(555.0, 555.0))
+        .geometry(wallGeometry.clone())
         // .geometry(Sphere::new(Vec3::new(0.0, 0.0, 0.0), 555.0 / 2.0))
+        // .material(greenMaterial.clone() as &dyn Material)
         .material(greenMaterial.clone())
         .transform(
             Mat4::translation(Vec3::new(555.0, 555.0 / 2.0, 555.0 / 2.0))
@@ -78,7 +83,7 @@ fn main() {
         )
         .build();
     let redWall = Sprite::builder()
-        .geometry(Rectangle::new(555.0, 555.0))
+        .geometry(wallGeometry.clone())
         .material(redMaterial.clone())
         .transform(
             Mat4::translation(Vec3::new(0.0, 555.0 / 2.0, 555.0 / 2.0))
@@ -86,7 +91,7 @@ fn main() {
         )
         .build();
     let light = Sprite::builder()
-        .geometry(Rectangle::new(130.0, 105.0))
+        .geometry(Rectangle::new(130.0, 105.0).into())
         .material(lightMaterial.clone())
         .transform(
             Mat4::translation(Vec3::new(555.0 / 2.0, 554.0, 555.0 / 2.0))
@@ -94,7 +99,7 @@ fn main() {
         )
         .build();
     let floor = Sprite::builder()
-        .geometry(Rectangle::new(555.0, 555.0))
+        .geometry(wallGeometry.clone())
         .material(whiteMaterial.clone())
         .transform(
             Mat4::translation(Vec3::new(555.0 / 2.0, 0.0, 550.0 / 2.0))
@@ -102,7 +107,7 @@ fn main() {
         )
         .build();
     let ceiling = Sprite::builder()
-        .geometry(Rectangle::new(555.0, 555.0))
+        .geometry(wallGeometry.clone())
         .material(whiteMaterial.clone())
         .transform(
             Mat4::translation(Vec3::new(555.0 / 2.0, 555.0, 550.0 / 2.0))
@@ -110,7 +115,7 @@ fn main() {
         )
         .build();
     let backWall = Sprite::builder()
-        .geometry(Rectangle::new(555.0, 555.0))
+        .geometry(wallGeometry.clone())
         .material(whiteMaterial.clone())
         .transform(
             Mat4::translation(Vec3::new(555.0 / 2.0, 555.0 / 2.0, 555.0))
@@ -118,24 +123,29 @@ fn main() {
         )
         .build();
 
-    let frontCube: Sprite<Vec<Box<dyn Hit>>> = Sprite::builder()
-        .geometry(Arc::new(
-            Cube::new(165.0, 165.0, 165.0)
-                .into_iter()
-                .map(|v| Box::new(v) as Box<dyn Hit>)
-                .collect(),
-        ))
-        .material(whiteMaterial.clone())
-        .transform(
-            Mat4::translation(Vec3::new(212.5, 82.5, 147.5))
-                .multiplied(&Mat4::rotation((-18.0 as f64).to_radians(), Vec3::ey())),
-        )
+    // let frontCube: Sprite<Vec<Box<dyn Hit>>> = Sprite::builder()
+    //     .geometry(Arc::new(
+    //         Cube::new(165.0, 165.0, 165.0)
+    //             .into_iter()
+    //             .map(|v| Box::new(v) as Box<dyn Hit>)
+    //             .collect(),
+    //     ))
+    //     .material(whiteMaterial.clone())
+    //     .transform(
+    //         Mat4::translation(Vec3::new(212.5, 82.5, 147.5))
+    //             .multiplied(&Mat4::rotation((-18.0 as f64).to_radians(), Vec3::ey())),
+    //     )
+    //     .build();
+    let frontCube = Sprite::builder()
+        .geometry(Sphere::new(165.0 / 2.0).into())
+        .material(Arc::new(Dielectric::new(1.5)))
+        .transform(Mat4::translation(Vec3::new(212.5, 82.5, 147.5)))
         .build();
-    let backCube: Sprite<Vec<Box<dyn Hit>>> = Sprite::builder()
+    let backCube: Sprite<Vec<Box<dyn Bound<AxisAlignedBoundingBox>>>, _> = Sprite::builder()
         .geometry(Arc::new(
             Cube::new(165.0, 330.0, 165.0)
                 .into_iter()
-                .map(|v| Box::new(v) as Box<dyn Hit>)
+                .map(|v| Box::new(v) as Box<dyn Bound<AxisAlignedBoundingBox>>)
                 .collect(),
         ))
         .material(whiteMaterial.clone())
@@ -145,16 +155,17 @@ fn main() {
         )
         .build();
 
-    let world: Vec<Box<dyn Hit>> = vec![
-        Box::new(greenWall),
-        Box::new(redWall),
-        Box::new(light),
-        Box::new(floor),
-        Box::new(ceiling),
-        Box::new(backWall),
-        Box::new(frontCube),
-        Box::new(backCube),
+    let world: Vec<Arc<dyn Bound<AxisAlignedBoundingBox>>> = vec![
+        Arc::new(greenWall),
+        Arc::new(redWall),
+        Arc::new(light),
+        Arc::new(floor),
+        Arc::new(ceiling),
+        Arc::new(backWall),
+        Arc::new(frontCube),
+        Arc::new(backCube),
     ];
+    let world = BoundingVolumeHierarchyNode::new(world).unwrap();
     let world = Arc::new(world);
     // let world = Arc::new(randomScene());
 
@@ -180,6 +191,7 @@ fn main() {
     let mut buffer = vec![vec![Vec3::new(0.0, 0.0, 0.0); width]; height];
     let executor = threadpool::ThreadPool::new(num_cpus::get());
 
+    // 本来想搞4个worker thread，但是没有mpmc channel，所以没法搞
     for y in (0..height).rev() {
         for x in 0..width {
             let sender = sender.clone();
@@ -209,7 +221,7 @@ fn main() {
     for _ in (0..height).rev() {
         for _ in 0..width {
             let (x, y, pixel) = receiver.recv().unwrap();
-            // eprintln!("{:#?} {:#?} {:#?}", y, x, pixel);
+            eprintln!("{:#?} {:#?}", y, x);
             buffer[y][x] = pixel;
         }
     }

@@ -1,5 +1,7 @@
 use crate::geometry::Rectangle;
 use crate::geometry::Sphere;
+use crate::geometry::TransformedGeometry;
+use crate::material::Material;
 use crate::ray::Hit;
 use crate::ray::HitRecord;
 use crate::ray::Ray;
@@ -122,20 +124,134 @@ impl Bound<AxisAlignedBoundingBox> for Rectangle {
     }
 }
 
-impl<T> Bound<AxisAlignedBoundingBox> for Sprite<T>
+impl<T, U> Bound<AxisAlignedBoundingBox> for Sprite<T, U>
 where
     T: Bound<AxisAlignedBoundingBox>,
-    // U: Material, // 可是这里根本和material没关系啊
+    U: Material + 'static, // 可是这里根本和material没关系啊
 {
     fn bound(&self) -> Option<AxisAlignedBoundingBox> {
         if let Some(geometry) = self.geometry() {
             // TODO: 现在有了transform，这边要改
-            return geometry.bound();
+            let transform = self.transform();
+
+            if let Some(bound) = geometry.bound() {
+                let x0 = bound.min()[0];
+                let y0 = bound.min()[1];
+                let z0 = bound.min()[2];
+
+                let x1 = bound.max()[0];
+                let y1 = bound.max()[1];
+                let z1 = bound.max()[2];
+
+                let mut min = vec![1.0 / 0.0; 3];
+                let mut max = vec![-1.0 / 0.0; 3];
+
+                for point in [
+                    Vec3::new(x0, y0, z0),
+                    Vec3::new(x1, y0, z0),
+                    Vec3::new(x0, y1, z0),
+                    Vec3::new(x0, y0, z1),
+                    Vec3::new(x1, y1, z0),
+                    Vec3::new(x1, y0, z1),
+                    Vec3::new(x0, y1, z1),
+                    Vec3::new(x1, y1, z1),
+                ]
+                .iter()
+                .map(|v| v.xyz1().transformed(transform).xyz())
+                {
+                    for i in 0..3 {
+                        if point[i] < min[i] {
+                            min[i] = point[i];
+                        }
+
+                        if point[i] > max[i] {
+                            max[i] = point[i];
+                        }
+                    }
+                }
+
+                let bound = AxisAlignedBoundingBox::new(
+                    Vec3::new(min[0], min[1], min[2]),
+                    Vec3::new(max[0], max[1], max[2]),
+                );
+                return Some(bound);
+            } else {
+                return None;
+            }
         } else {
             return None;
         }
     }
 }
+
+// 这里怎么又重复了一遍
+impl<T> Bound<AxisAlignedBoundingBox> for TransformedGeometry<T>
+where
+    T: Bound<AxisAlignedBoundingBox>,
+{
+    fn bound(&self) -> Option<AxisAlignedBoundingBox> {
+        let geometry = self.geometry();
+        let transform = self.transform();
+
+        if let Some(bound) = geometry.bound() {
+            let x0 = bound.min()[0];
+            let y0 = bound.min()[1];
+            let z0 = bound.min()[2];
+
+            let x1 = bound.max()[0];
+            let y1 = bound.max()[1];
+            let z1 = bound.max()[2];
+
+            let mut min = vec![1.0 / 0.0; 3];
+            let mut max = vec![-1.0 / 0.0; 3];
+
+            for point in [
+                Vec3::new(x0, y0, z0),
+                Vec3::new(x1, y0, z0),
+                Vec3::new(x0, y1, z0),
+                Vec3::new(x0, y0, z1),
+                Vec3::new(x1, y1, z0),
+                Vec3::new(x1, y0, z1),
+                Vec3::new(x0, y1, z1),
+                Vec3::new(x1, y1, z1),
+            ]
+            .iter()
+            .map(|v| v.xyz1().transformed(transform).xyz())
+            {
+                for i in 0..3 {
+                    if point[i] < min[i] {
+                        min[i] = point[i];
+                    }
+
+                    if point[i] > max[i] {
+                        max[i] = point[i];
+                    }
+                }
+            }
+
+            let bound = AxisAlignedBoundingBox::new(
+                Vec3::new(min[0], min[1], min[2]),
+                Vec3::new(max[0], max[1], max[2]),
+            );
+            return Some(bound);
+        } else {
+            return None;
+        }
+    }
+}
+
+// 可以针对球特殊优化
+// impl Bound<AxisAlignedBoundingBox> for TransformedGeometry<Sphere> {
+//     fn bound(&self) -> Option<AxisAlignedBoundingBox> {}
+// }
+
+// 一开始想这样写的……但是遇到了超级多的麻烦
+// impl<T> Bound<AxisAlignedBoundingBox> for (&T, &Mat4)
+// where
+//     T: Bound<AxisAlignedBoundingBox>,
+// {
+//     fn bound(&self) -> Option<AxisAlignedBoundingBox> {}
+// }
 
 impl Bound<AxisAlignedBoundingBox> for Vec<Box<dyn Bound<AxisAlignedBoundingBox>>> {
     fn bound(&self) -> Option<AxisAlignedBoundingBox> {
@@ -189,7 +305,7 @@ pub struct BoundingVolumeHierarchyNode<T> {
 
 impl<T> BoundingVolumeHierarchyNode<T>
 where
-    T: Bound<T> + Hit,
+    T: Bound<T>, // Bound<T>已经包含了Hit
 {
     pub fn volume(&self) -> &T {
         return &self.volume;

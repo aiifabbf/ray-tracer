@@ -156,13 +156,36 @@ impl Hit for Rectangle {
 }
 
 // 实现cube的时候突然发现有个麻烦，transform是只有sprite才有的性质，然而我这里想要用复合几何体，不需要material
-impl<T> Hit for (T, Mat4)
+#[derive(Debug, Clone)]
+pub struct TransformedGeometry<T> {
+    geometry: T,
+    transform: Mat4,
+}
+
+impl<T> TransformedGeometry<T> {
+    pub fn new(geometry: T, transform: Mat4) -> Self {
+        Self {
+            geometry: geometry,
+            transform: transform,
+        }
+    }
+
+    pub fn geometry(&self) -> &T {
+        return &self.geometry;
+    }
+
+    pub fn transform(&self) -> &Mat4 {
+        return &self.transform;
+    }
+}
+
+impl<T> Hit for TransformedGeometry<T>
 where
     T: Hit,
 {
     fn hit(&self, ray: &Ray) -> Option<HitRecord> {
-        let geometry = &self.0;
-        let transform = &self.1;
+        let geometry = self.geometry();
+        let transform = self.transform();
 
         if let Some(inversed) = &transform.inversed() {
             // 原光线反变换
@@ -193,39 +216,118 @@ where
         }
     }
 }
+
+// impl<T> Hit for (&T, &Mat4)
+// where
+//     T: Hit,
+// {
+//     fn hit(&self, ray: &Ray) -> Option<HitRecord> {
+//         let geometry = &self.0;
+//         let transform = &self.1;
+
+//         if let Some(inversed) = &transform.inversed() {
+//             // 原光线反变换
+//             let origin = ray.origin().xyz1().transformed(inversed);
+//             let direction = ray.direction().xyz0().transformed(inversed);
+
+//             let ray = Ray::new(origin.into(), direction.into());
+
+//             if let Some(record) = geometry.hit(&ray) {
+//                 // 击中后再正变换
+//                 let intersection = record.intersection().xyz1().transformed(transform);
+//                 let normal = record.normal().xyz0().transformed(transform);
+
+//                 let res = HitRecord::new(
+//                     record.t(),
+//                     intersection.into(),
+//                     normal.into(),
+//                     None,
+//                     *record.uv(),
+//                 );
+//                 return Some(res);
+//             } else {
+//                 return None;
+//             }
+//         } else {
+//             // det = 0，说明变换把物体直接拍扁了，这时候怎么处理呢
+//             return None;
+//         }
+//     }
+// }
 // 直接把sprite那里的抄过来了。重构的时候要想想怎么用一份代码就行
+
+// 这两段代码没有任何区别，怎么做到只写一遍呢？
+// impl<T> Hit for (T, Mat4)
+// where
+//     T: Hit,
+// {
+//     fn hit(&self, ray: &Ray) -> Option<HitRecord> {
+//         let geometry = &self.0;
+//         let transform = &self.1;
+
+//         if let Some(inversed) = &transform.inversed() {
+//             // 原光线反变换
+//             let origin = ray.origin().xyz1().transformed(inversed);
+//             let direction = ray.direction().xyz0().transformed(inversed);
+
+//             let ray = Ray::new(origin.into(), direction.into());
+
+//             if let Some(record) = geometry.hit(&ray) {
+//                 // 击中后再正变换
+//                 let intersection = record.intersection().xyz1().transformed(transform);
+//                 let normal = record.normal().xyz0().transformed(transform);
+
+//                 let res = HitRecord::new(
+//                     record.t(),
+//                     intersection.into(),
+//                     normal.into(),
+//                     None,
+//                     *record.uv(),
+//                 );
+//                 return Some(res);
+//             } else {
+//                 return None;
+//             }
+//         } else {
+//             // det = 0，说明变换把物体直接拍扁了，这时候怎么处理呢
+//             return None;
+//         }
+//     }
+// }
+
+// 一开始是想，实现了impl<T> Hit for (&T, &Mat4)之后，何愁impl<T> Hit for (T, Mat4)不好写呢？直接把(T, Mat4)里面的T和Mat4取个引用、再直接调用(&T, &Mat4).hit()就好了，结果并不能这么做，会提示referencing local variable，很奇怪，我到现在都没有想清楚为什么会这样。
 
 #[derive(Clone, Debug)]
 pub struct Cube;
 
 impl Cube {
-    pub fn new(width: f64, height: f64, depth: f64) -> Vec<(Rectangle, Mat4)> {
+    pub fn new(width: f64, height: f64, depth: f64) -> Vec<TransformedGeometry<Rectangle>> {
         return vec![
-            (
+            TransformedGeometry::new(
                 Rectangle::new(width, height),
                 Mat4::translation(Vec3::new(0.0, 0.0, depth / 2.0)),
             ), // front
-            (
+            TransformedGeometry::new(
                 Rectangle::new(depth, height),
                 Mat4::translation(Vec3::new(-width / 2.0, 0.0, 0.0))
                     .multiplied(&Mat4::rotation((-90.0 as f64).to_radians(), Vec3::ey())),
             ), // left
-            (
+            TransformedGeometry::new(
                 Rectangle::new(width, height),
                 Mat4::translation(Vec3::new(0.0, 0.0, -depth / 2.0))
                     .multiplied(&Mat4::rotation((180.0 as f64).to_radians(), Vec3::ey())),
             ), // back
-            (
+            TransformedGeometry::new(
                 Rectangle::new(depth, height),
                 Mat4::translation(Vec3::new(width / 2.0, 0.0, 0.0))
                     .multiplied(&Mat4::rotation((90.0 as f64).to_radians(), Vec3::ey())),
             ), // right
-            (
+            TransformedGeometry::new(
                 Rectangle::new(width, depth),
                 Mat4::translation(Vec3::new(0.0, height / 2.0, 0.0))
                     .multiplied(&Mat4::rotation((-90.0 as f64).to_radians(), Vec3::ex())),
             ), // top
-            (
+            TransformedGeometry::new(
                 Rectangle::new(width, depth),
                 Mat4::translation(Vec3::new(0.0, -height / 2.0, 0.0))
                     .multiplied(&Mat4::rotation((90.0 as f64).to_radians(), Vec3::ex())),
