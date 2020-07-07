@@ -9,3 +9,4 @@ pub mod sprite;
 pub mod util;
 pub mod vec3;
 pub mod vec4;
+pub mod volume;

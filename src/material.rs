@@ -272,3 +272,28 @@ impl Material for DiffuseLight {
         return self.emission.value(uv, point);
     }
 }
+
+// 各项同性随机散射
+#[derive(Debug, Clone)]
+pub struct Isotropic {
+    albedo: Arc<dyn Texture>,
+}
+
+impl Isotropic {
+    pub fn new<T>(albedo: T) -> Self
+    where
+        T: Into<Arc<dyn Texture>>,
+    {
+        Self {
+            albedo: albedo.into(),
+        }
+    }
+}
+
+impl Material for Isotropic {
+    fn scatter(&self, rayIn: &Ray, hitRecord: &HitRecord) -> Option<(Ray, Vec3)> {
+        let scattered = Ray::new(hitRecord.intersection().clone(), randomInUnitSphere());
+        let attenuation = self.albedo.value(hitRecord.uv(), hitRecord.intersection());
+        return Some((scattered, attenuation));
+    }
+}

@@ -7,6 +7,7 @@ use crate::ray::HitRecord;
 use crate::ray::Ray;
 use crate::sprite::Sprite;
 use crate::vec3::Vec3;
+use crate::volume::ConstantMedium;
 
 use rand::thread_rng;
 use rand::Rng;
@@ -461,5 +462,15 @@ where
 impl Bound<AxisAlignedBoundingBox> for BoundingVolumeHierarchyNode<AxisAlignedBoundingBox> {
     fn bound(&self) -> Option<AxisAlignedBoundingBox> {
         return Some(self.volume.clone());
+    }
+}
+
+impl<T, B> Bound<B> for ConstantMedium<T>
+where
+    T: Bound<B>,
+    B: Hit,
+{
+    fn bound(&self) -> Option<B> {
+        return self.geometry().bound();
     }
 }

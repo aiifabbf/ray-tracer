@@ -55,6 +55,7 @@ impl Hit for Sphere {
             if t1 > (10.0 as f64).powf(-6.0) {
                 // 这里被坑惨了，千万不能直接判断大于0
                 // 因为浮点数精度的问题，有时候射线的起点会偏移到球的内部
+                // 为什么取1e-6呢？能不能取f64::EPSILON呢
                 t = t1;
             } else if t2 > (10.0 as f64).powf(-6.0) {
                 t = t2;
@@ -158,7 +159,7 @@ impl Hit for Rectangle {
 // 实现cube的时候突然发现有个麻烦，transform是只有sprite才有的性质，然而我这里想要用复合几何体，不需要material
 #[derive(Debug, Clone)]
 pub struct TransformedGeometry<T> {
-    geometry: T,
+    geometry: T, // geometry应不应该是Arc<T>呢？因为这个可以看作是对原来geometry的修饰
     transform: Mat4,
 }
 
@@ -216,84 +217,6 @@ where
         }
     }
 }
-
-// impl<T> Hit for (&T, &Mat4)
-// where
-//     T: Hit,
-// {
-//     fn hit(&self, ray: &Ray) -> Option<HitRecord> {
-//         let geometry = &self.0;
-//         let transform = &self.1;
-
-//         if let Some(inversed) = &transform.inversed() {
-//             // 原光线反变换
-//             let origin = ray.origin().xyz1().transformed(inversed);
-//             let direction = ray.direction().xyz0().transformed(inversed);
-
-//             let ray = Ray::new(origin.into(), direction.into());
-
-//             if let Some(record) = geometry.hit(&ray) {
-//                 // 击中后再正变换
-//                 let intersection = record.intersection().xyz1().transformed(transform);
-//                 let normal = record.normal().xyz0().transformed(transform);
-
-//                 let res = HitRecord::new(
-//                     record.t(),
-//                     intersection.into(),
-//                     normal.into(),
-//                     None,
-//                     *record.uv(),
-//                 );
-//                 return Some(res);
-//             } else {
-//                 return None;
-//             }
-//         } else {
-//             // det = 0，说明变换把物体直接拍扁了，这时候怎么处理呢
-//             return None;
-//         }
-//     }
-// }
-// 直接把sprite那里的抄过来了。重构的时候要想想怎么用一份代码就行
-
-// 这两段代码没有任何区别，怎么做到只写一遍呢？
-// impl<T> Hit for (T, Mat4)
-// where
-//     T: Hit,
-// {
-//     fn hit(&self, ray: &Ray) -> Option<HitRecord> {
-//         let geometry = &self.0;
-//         let transform = &self.1;
-
-//         if let Some(inversed) = &transform.inversed() {
-//             // 原光线反变换
-//             let origin = ray.origin().xyz1().transformed(inversed);
-//             let direction = ray.direction().xyz0().transformed(inversed);
-
-//             let ray = Ray::new(origin.into(), direction.into());
-
-//             if let Some(record) = geometry.hit(&ray) {
-//                 // 击中后再正变换
-//                 let intersection = record.intersection().xyz1().transformed(transform);
-//                 let normal = record.normal().xyz0().transformed(transform);
-
-//                 let res = HitRecord::new(
-//                     record.t(),
-//                     intersection.into(),
-//                     normal.into(),
-//                     None,
-//                     *record.uv(),
-//                 );
-//                 return Some(res);
-//             } else {
-//                 return None;
-//             }
-//         } else {
-//             // det = 0，说明变换把物体直接拍扁了，这时候怎么处理呢
-//             return None;
-//         }
-//     }
-// }
 
 // 一开始是想，实现了impl<T> Hit for (&T, &Mat4)之后，何愁impl<T> Hit for (T, Mat4)不好写呢？直接把(T, Mat4)里面的T和Mat4取个引用、再直接调用(&T, &Mat4).hit()就好了，结果并不能这么做，会提示referencing local variable，很奇怪，我到现在都没有想清楚为什么会这样。
 

@@ -9,6 +9,7 @@ mod sprite;
 mod util;
 mod vec3;
 mod vec4;
+mod volume;
 
 use crate::camera::Camera; // 非要把trait也import进来才能调用trait方法
 use crate::camera::PerspectiveCamera;
@@ -20,6 +21,7 @@ use crate::material::CheckerTexture;
 use crate::material::Dielectric;
 use crate::material::DiffuseLight;
 use crate::material::ImageTexture;
+use crate::material::Isotropic;
 use crate::material::Lambertian;
 use crate::material::Material;
 use crate::material::Metal;
@@ -28,6 +30,7 @@ use crate::ray::Hit;
 use crate::render::color;
 use crate::sprite::Sprite;
 use crate::vec3::Vec3;
+use crate::volume::ConstantMedium;
 
 use crate::optimize::AxisAlignedBoundingBox;
 use crate::optimize::Bound;
@@ -39,7 +42,6 @@ use rand::Rng; // generator.gen_range()居然会用到这个，匪夷所思
 // 知道了，因为gen_range是trait方法，所以必须要引入trait才行
 
 use std::sync::Arc;
-use std::sync::Mutex;
 
 fn main() {
     let width = 500;
@@ -141,19 +143,26 @@ fn main() {
         .material(Arc::new(Dielectric::new(1.5)))
         .transform(Mat4::translation(Vec3::new(212.5, 82.5, 147.5)))
         .build();
-    let backCube: Sprite<Vec<Box<dyn Bound<AxisAlignedBoundingBox>>>, _> = Sprite::builder()
-        .geometry(Arc::new(
-            Cube::new(165.0, 330.0, 165.0)
-                .into_iter()
-                .map(|v| Box::new(v) as Box<dyn Bound<AxisAlignedBoundingBox>>)
-                .collect(),
-        ))
-        .material(whiteMaterial.clone())
-        .transform(
-            Mat4::translation(Vec3::new(347.5, 165.0, 377.5))
-                .multiplied(&Mat4::rotation((15.0 as f64).to_radians(), Vec3::ey())),
-        )
-        .build();
+    let backCube: Sprite<ConstantMedium<Vec<Box<dyn Bound<AxisAlignedBoundingBox>>>>, _> =
+        Sprite::builder()
+            .geometry(
+                ConstantMedium::new(
+                    Arc::new(
+                        Cube::new(165.0, 330.0, 165.0)
+                            .into_iter()
+                            .map(|v| Box::new(v) as Box<dyn Bound<AxisAlignedBoundingBox>>)
+                            .collect(),
+                    ),
+                    0.01,
+                )
+                .into(),
+            )
+            .material(Isotropic::new(Vec3::new(1.0, 1.0, 1.0)).into())
+            .transform(
+                Mat4::translation(Vec3::new(347.5, 165.0, 377.5))
+                    .multiplied(&Mat4::rotation((15.0 as f64).to_radians(), Vec3::ey())),
+            )
+            .build();
 
     let world: Vec<Arc<dyn Bound<AxisAlignedBoundingBox>>> = vec![
         Arc::new(greenWall),
@@ -167,7 +176,6 @@ fn main() {
     ];
     let world = BoundingVolumeHierarchyNode::new(world).unwrap();
     let world = Arc::new(world);
-    // let world = Arc::new(randomScene());
 
     let eye = Vec3::new(555.0 / 2.0, 550.0 / 2.0, -800.0);
     let center = Vec3::new(555.0 / 2.0, 555.0 / 2.0, 0.0);
@@ -189,34 +197,39 @@ fn main() {
 
     let (sender, receiver) = std::sync::mpsc::channel();
     let mut buffer = vec![vec![Vec3::new(0.0, 0.0, 0.0); width]; height];
-    let executor = threadpool::ThreadPool::new(num_cpus::get());
+    let cpuCount = num_cpus::get();
 
-    // 本来想搞4个worker thread，但是没有mpmc channel，所以没法搞
-    for y in (0..height).rev() {
-        for x in 0..width {
-            let sender = sender.clone();
-            let world = world.clone();
-            let camera = camera.clone();
+    for i in 0..cpuCount {
+        let sender = sender.clone();
+        let world = world.clone();
+        let camera = camera.clone();
 
-            executor.execute(move || {
-                let mut pixel = Vec3::new(0.0, 0.0, 0.0);
-
-                for _ in 0..subPixelSampleCount {
-                    let mut generator = thread_rng();
-                    let u = (x as f64 + generator.gen_range(0.0, 1.0)) / width as f64;
-                    let v = (y as f64 + generator.gen_range(0.0, 1.0)) / height as f64;
-                    // 这个不太符合OpenGL的normalized device coordinate，啥时候改一下
-                    // let ray = Ray::new(origin, lowerLeft + horizontal * u + vertical * v);
-                    let ray = camera.ray(u, v);
-                    // 书上这里把world变成了一个什么hit_list，我想不如直接给Vec<Box<dyn Hit>>实现Hit trait，这样多个物体和一个物体都满足Hit trait
-                    pixel += color(&ray, world.as_ref(), 100); // 天哪&*是什么玩意，还是用as_ref()吧
+        std::thread::spawn(move || {
+            for y in (0..height).rev() {
+                if y % cpuCount != i {
+                    continue;
                 }
 
-                pixel /= subPixelSampleCount as f64;
-                sender.send((x, y, pixel)).unwrap();
-            });
-        }
+                for x in 0..width {
+                    let mut pixel = Vec3::new(0.0, 0.0, 0.0);
+                    for _ in 0..subPixelSampleCount {
+                        let mut generator = thread_rng();
+                        let u = (x as f64 + generator.gen_range(0.0, 1.0)) / width as f64;
+                        let v = (y as f64 + generator.gen_range(0.0, 1.0)) / height as f64;
+                        // 这个不太符合OpenGL的normalized device coordinate，啥时候改一下
+                        // let ray = Ray::new(origin, lowerLeft + horizontal * u + vertical * v);
+                        let ray = camera.ray(u, v);
+                        // 书上这里把world变成了一个什么hit_list，我想不如直接给Vec<Box<dyn Hit>>实现Hit trait，这样多个物体和一个物体都满足Hit trait
+                        pixel += color(&ray, world.as_ref(), 100); // 天哪&*是什么玩意，还是用as_ref()吧
+                    }
+                    pixel /= subPixelSampleCount as f64;
+                    sender.send((x, y, pixel)).unwrap();
+                }
+            }
+        });
     }
+
+    // 改成了4个worker thread，这样可以减少Arc clone的次数
 
     for _ in (0..height).rev() {
         for _ in 0..width {
