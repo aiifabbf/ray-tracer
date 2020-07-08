@@ -8,6 +8,5 @@ edition = "2018"
 
 [dependencies]
 rand = "*"
-threadpool = "*"
 num_cpus = "*"
 image = "*"
