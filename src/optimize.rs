@@ -120,7 +120,7 @@ impl Bound<AxisAlignedBoundingBox> for Rectangle {
 
         return Some(AxisAlignedBoundingBox::new(
             Vec3::new(a.0, a.1, z - 1e-6),
-            Vec3::new(b.0, b.1, z + 1e+6),
+            Vec3::new(b.0, b.1, z + 1e-6), // 啊啊啊啊这里写错了，写成了1e+6，我这是五行缺float吗？
         ));
     }
 }
@@ -132,7 +132,6 @@ where
 {
     fn bound(&self) -> Option<AxisAlignedBoundingBox> {
         if let Some(geometry) = self.geometry() {
-            // TODO: 现在有了transform，这边要改
             let transform = self.transform();
 
             if let Some(bound) = geometry.bound() {
@@ -273,8 +272,48 @@ impl Bound<AxisAlignedBoundingBox> for Vec<Box<dyn Bound<AxisAlignedBoundingBox>
 }
 // 不写impl Hit for Vec<Box<dyn Bound<AxisAlignedBoundingBox>>>的话会提示Vec<Box<dyn Bound<AxisAlignedBoundingBox>>>不满足Hit……很迷
 
+// 复读一遍
+impl Bound<AxisAlignedBoundingBox> for Vec<Arc<dyn Bound<AxisAlignedBoundingBox>>> {
+    fn bound(&self) -> Option<AxisAlignedBoundingBox> {
+        let mut res = Option::<AxisAlignedBoundingBox>::None;
+
+        for v in self.iter() {
+            if let Some(other) = &v.bound() {
+                if let Some(bound) = &res {
+                    res = Some(bound.merged(other));
+                } else {
+                    res = Some(other.clone());
+                }
+            }
+        }
+
+        return res;
+    }
+}
+
 // 这里怎么又要写一遍……明明Vec<Box<dyn Hit>>一定满足Hit、Bound<AABB>又是Hit的，说明Vec<Box<dyn Bound<AABB>>>肯定是Vec<Box<dyn Hit>>的子集，为啥还要写一遍呢……
 impl Hit for Vec<Box<dyn Bound<AxisAlignedBoundingBox>>> {
+    fn hit(&self, ray: &Ray) -> Option<HitRecord> {
+        let mut res = None;
+
+        for v in self.iter() {
+            if let Some(record) = v.hit(ray) {
+                if res.is_none() {
+                    res.replace(record);
+                } else {
+                    if record.t() < res.as_ref().unwrap().t() {
+                        res.replace(record);
+                    }
+                }
+            }
+        }
+
+        return res;
+    }
+}
+
+// 还要给Arc写一遍……
+impl Hit for Vec<Arc<dyn Bound<AxisAlignedBoundingBox>>> {
     fn hit(&self, ray: &Ray) -> Option<HitRecord> {
         let mut res = None;
 
@@ -434,6 +473,7 @@ where
             if let Some(left) = &self.left {
                 if let Some(leftRecord) = left.hit(ray) {
                     if leftRecord.t() < record.t() {
+                        // bounding box的t是inf，所以放心大胆地比
                         record = leftRecord;
                     }
                 }
@@ -471,6 +511,6 @@ where
     B: Hit,
 {
     fn bound(&self) -> Option<B> {
-        return self.geometry().bound();
+        return self.boundary().bound();
     }
 }

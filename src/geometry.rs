@@ -5,6 +5,7 @@ use crate::ray::Ray;
 use crate::vec3::Vec3;
 
 use std::f64::consts::PI;
+use std::sync::Arc;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Sphere {
@@ -72,6 +73,28 @@ impl Hit for Sphere {
 }
 
 impl Hit for Vec<Box<dyn Hit>> {
+    fn hit(&self, ray: &Ray) -> Option<HitRecord> {
+        let mut res = None;
+
+        for v in self.iter() {
+            if let Some(record) = v.hit(ray) {
+                if res.is_none() {
+                    res.replace(record);
+                } else {
+                    if record.t() < res.as_ref().unwrap().t() {
+                        res.replace(record);
+                    }
+                }
+            }
+        }
+
+        return res;
+    }
+}
+
+// 难道还要给Vec<Arc<dyn Hit>>写一遍吗？能不能一次impl同时给Vec<Box<dyn Hit>>和Vec<Arc<dyn Hit>>实现呢？他们的代码真的没有任何区别
+
+impl Hit for Vec<Arc<dyn Hit>> {
     fn hit(&self, ray: &Ray) -> Option<HitRecord> {
         let mut res = None;
 

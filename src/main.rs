@@ -25,6 +25,7 @@ use crate::material::Isotropic;
 use crate::material::Lambertian;
 use crate::material::Material;
 use crate::material::Metal;
+use crate::material::SolidColor;
 use crate::material::Texture;
 use crate::ray::Hit;
 use crate::render::color;
@@ -44,140 +45,17 @@ use rand::Rng; // generator.gen_range()居然会用到这个，匪夷所思
 use std::sync::Arc;
 
 fn main() {
-    let width = 500;
-    let height = 500;
+    let width = 800;
+    let height = 800;
     println!("P3");
     println!("{:?} {:?}", width, height);
     println!("255");
 
-    let image = Arc::new(image::open("./earthmap.jpg").unwrap());
-    let mapping = move |uv: &(f64, f64)| -> Vec3 {
-        let image = image.clone();
-        let buffer = image.as_rgb8().unwrap();
-        let (u, v) = uv;
-        let pixel = buffer.get_pixel(
-            (u * buffer.width() as f64) as u32,
-            ((1.0 - v) * buffer.height() as f64) as u32,
-        ); // image的原点是图像的左上角，而uv坐标系里原点是左下角，所以这里要颠倒一下
-        return Vec3::new(
-            pixel[0] as f64 / 255.0,
-            pixel[1] as f64 / 255.0,
-            pixel[2] as f64 / 255.0,
-        );
-    };
-    // let texture: Arc<dyn Texture> = Arc::new(ImageTexture::new(mapping));
-
-    let redMaterial = Arc::new(Lambertian::new(Vec3::new(0.65, 0.05, 0.05)));
-    let whiteMaterial = Arc::new(Lambertian::new(Vec3::new(0.73, 0.73, 0.73)));
-    let greenMaterial = Arc::new(Lambertian::new(Vec3::new(0.12, 0.45, 0.15)));
-    let lightMaterial = Arc::new(DiffuseLight::new(Vec3::new(15.0, 15.0, 15.0)));
-
-    let wallGeometry = Arc::new(Rectangle::new(555.0, 555.0)); // 还是需要Arc的，因为要保证引用一直有效
-
-    let greenWall = Sprite::builder()
-        .geometry(wallGeometry.clone())
-        // .geometry(Sphere::new(Vec3::new(0.0, 0.0, 0.0), 555.0 / 2.0))
-        // .material(greenMaterial.clone() as &dyn Material)
-        .material(greenMaterial.clone())
-        .transform(
-            Mat4::translation(Vec3::new(555.0, 555.0 / 2.0, 555.0 / 2.0))
-                .multiplied(&Mat4::rotation((-90.0 as f64).to_radians(), Vec3::ey())),
-        )
-        .build();
-    let redWall = Sprite::builder()
-        .geometry(wallGeometry.clone())
-        .material(redMaterial.clone())
-        .transform(
-            Mat4::translation(Vec3::new(0.0, 555.0 / 2.0, 555.0 / 2.0))
-                .multiplied(&Mat4::rotation((90.0 as f64).to_radians(), Vec3::ey())),
-        )
-        .build();
-    let light = Sprite::builder()
-        .geometry(Rectangle::new(130.0, 105.0).into())
-        .material(lightMaterial.clone())
-        .transform(
-            Mat4::translation(Vec3::new(555.0 / 2.0, 554.0, 555.0 / 2.0))
-                .multiplied(&Mat4::rotation((90.0 as f64).to_radians(), Vec3::ex())),
-        )
-        .build();
-    let floor = Sprite::builder()
-        .geometry(wallGeometry.clone())
-        .material(whiteMaterial.clone())
-        .transform(
-            Mat4::translation(Vec3::new(555.0 / 2.0, 0.0, 550.0 / 2.0))
-                .multiplied(&Mat4::rotation((-90.0 as f64).to_radians(), Vec3::ex())),
-        )
-        .build();
-    let ceiling = Sprite::builder()
-        .geometry(wallGeometry.clone())
-        .material(whiteMaterial.clone())
-        .transform(
-            Mat4::translation(Vec3::new(555.0 / 2.0, 555.0, 550.0 / 2.0))
-                .multiplied(&Mat4::rotation((90.0 as f64).to_radians(), Vec3::ex())),
-        )
-        .build();
-    let backWall = Sprite::builder()
-        .geometry(wallGeometry.clone())
-        .material(whiteMaterial.clone())
-        .transform(
-            Mat4::translation(Vec3::new(555.0 / 2.0, 555.0 / 2.0, 555.0))
-                .multiplied(&Mat4::rotation((180.0 as f64).to_radians(), Vec3::ey())),
-        )
-        .build();
-
-    // let frontCube: Sprite<Vec<Box<dyn Hit>>> = Sprite::builder()
-    //     .geometry(Arc::new(
-    //         Cube::new(165.0, 165.0, 165.0)
-    //             .into_iter()
-    //             .map(|v| Box::new(v) as Box<dyn Hit>)
-    //             .collect(),
-    //     ))
-    //     .material(whiteMaterial.clone())
-    //     .transform(
-    //         Mat4::translation(Vec3::new(212.5, 82.5, 147.5))
-    //             .multiplied(&Mat4::rotation((-18.0 as f64).to_radians(), Vec3::ey())),
-    //     )
-    //     .build();
-    let frontCube = Sprite::builder()
-        .geometry(Sphere::new(165.0 / 2.0).into())
-        .material(Arc::new(Dielectric::new(1.5)))
-        .transform(Mat4::translation(Vec3::new(212.5, 82.5, 147.5)))
-        .build();
-    let backCube: Sprite<ConstantMedium<Vec<Box<dyn Bound<AxisAlignedBoundingBox>>>>, _> =
-        Sprite::builder()
-            .geometry(
-                ConstantMedium::new(
-                    Arc::new(
-                        Cube::new(165.0, 330.0, 165.0)
-                            .into_iter()
-                            .map(|v| Box::new(v) as Box<dyn Bound<AxisAlignedBoundingBox>>)
-                            .collect(),
-                    ),
-                    0.01,
-                )
-                .into(),
-            )
-            .material(Isotropic::new(Vec3::new(1.0, 1.0, 1.0)).into())
-            .transform(
-                Mat4::translation(Vec3::new(347.5, 165.0, 377.5))
-                    .multiplied(&Mat4::rotation((15.0 as f64).to_radians(), Vec3::ey())),
-            )
-            .build();
-
-    let world: Vec<Arc<dyn Bound<AxisAlignedBoundingBox>>> = vec![
-        Arc::new(greenWall),
-        Arc::new(redWall),
-        Arc::new(light),
-        Arc::new(floor),
-        Arc::new(ceiling),
-        Arc::new(backWall),
-        Arc::new(frontCube),
-        Arc::new(backCube),
-    ];
-    let world = BoundingVolumeHierarchyNode::new(world).unwrap();
+    let world = BoundingVolumeHierarchyNode::new(finalScene()).unwrap();
+    // eprintln!("{:#?}", world);
     let world = Arc::new(world);
 
-    let eye = Vec3::new(555.0 / 2.0, 550.0 / 2.0, -800.0);
+    let eye = Vec3::new(555.0 / 2.0 + 200.0, 550.0 / 2.0, -600.0);
     let center = Vec3::new(555.0 / 2.0, 555.0 / 2.0, 0.0);
     let up = Vec3::new(0.0, 1.0, 0.0);
 
@@ -234,8 +112,10 @@ fn main() {
     for _ in (0..height).rev() {
         for _ in 0..width {
             let (x, y, pixel) = receiver.recv().unwrap();
-            eprintln!("{:#?} {:#?}", y, x);
             buffer[y][x] = pixel;
+            if x == 0 {
+                eprintln!("{:#?} {:#?}", y, x);
+            }
         }
     }
 
@@ -250,4 +130,179 @@ fn main() {
             );
         }
     }
+}
+
+fn finalScene() -> Vec<Arc<dyn Bound<AxisAlignedBoundingBox>>> {
+    let mut generator = thread_rng();
+
+    // 地面凹凸不平的淡绿色方块地板
+    let groundMaterial = Arc::new(Lambertian::new(Vec3::new(0.48, 0.83, 0.53)));
+
+    let boxCountPerSide = 20;
+    let mut cubes: Vec<Arc<dyn Bound<AxisAlignedBoundingBox>>> = vec![];
+
+    for i in 0..boxCountPerSide {
+        for j in 0..boxCountPerSide {
+            let w = 100.0;
+            let x0 = -1000.0 + i as f64 * w;
+            let y0 = 0.0;
+            let z0 = -1000.0 + j as f64 * w;
+            let x1 = x0 + w;
+            let y1 = generator.gen_range(1.0, 101.0);
+            let z1 = z0 + w;
+
+            let cubeGeometry: Vec<Arc<dyn Bound<AxisAlignedBoundingBox>>> =
+                Cube::new(x1 - x0, y1 - y0, z1 - z0)
+                    .into_iter()
+                    .map(|v| Arc::new(v) as Arc<dyn Bound<AxisAlignedBoundingBox>>)
+                    .collect();
+            let cubeGeometry = BoundingVolumeHierarchyNode::new(cubeGeometry).unwrap();
+            let cube = Arc::new(
+                Sprite::builder()
+                    .geometry(Arc::new(cubeGeometry))
+                    .material(groundMaterial.clone())
+                    .transform(Mat4::translation(Vec3::new(
+                        (x0 + x1) / 2.0,
+                        (y0 + y1) / 2.0,
+                        (z0 + z1) / 2.0,
+                    )))
+                    .build(),
+            );
+
+            cubes.push(cube);
+        }
+    }
+    let cubes: Arc<dyn Bound<AxisAlignedBoundingBox>> =
+        Arc::new(BoundingVolumeHierarchyNode::new(cubes).unwrap());
+
+    let lightMaterial = Arc::new(DiffuseLight::new(Vec3::new(7.0, 7.0, 7.0)));
+    let light = Arc::new(
+        Sprite::builder()
+            .geometry(Rectangle::new(300.0, 265.0).into())
+            .material(lightMaterial)
+            .transform(
+                Mat4::translation(Vec3::new(273.0, 554.0, 279.5))
+                    .multiplied(&Mat4::rotation(90.0_f64.to_radians(), Vec3::ex())),
+            )
+            .build(),
+    );
+
+    // 左上角的动态模糊，我还没写动态模糊
+    let movingSphereMaterial = Arc::new(Lambertian::new(Vec3::new(0.7, 0.3, 0.1)));
+    let movingSphere = Arc::new(
+        Sprite::builder()
+            .geometry(Sphere::new(50.0).into())
+            .material(movingSphereMaterial)
+            .transform(Mat4::translation(Vec3::new(400.0, 400.0, 200.0)))
+            .build(),
+    );
+
+    // 正中间的玻璃球
+    let glassSphere = Arc::new(
+        Sprite::builder()
+            .geometry(Sphere::new(50.0).into())
+            .material(Dielectric::new(1.5).into())
+            .transform(Mat4::translation(Vec3::new(260.0, 150.0, 45.0)))
+            .build(),
+    );
+    // 书上的玻璃球不仅有折射，还有表面反射，我不知道他是怎么做出来的
+
+    // 右下角的铁球
+    let metalSphere = Arc::new(
+        Sprite::builder()
+            .geometry(Sphere::new(50.0).into())
+            .material(Metal::new(Vec3::new(0.8, 0.8, 0.9), 1.0).into())
+            .transform(Mat4::translation(Vec3::new(0.0, 150.0, 145.0)))
+            .build(),
+    );
+
+    // 不太理解这个东西，书上说是subsurface material，但是最后渲染出来是毛玻璃球的感觉，并不是书上那种陶瓷的感觉
+    let blueSphereMaterial = Arc::new(Dielectric::new(1.5));
+    let blueSphereSurface = Arc::new(
+        Sprite::builder()
+            .geometry(Sphere::new(70.0).into())
+            .material(blueSphereMaterial)
+            .transform(Mat4::translation(Vec3::new(360.0, 150.0, 145.0)))
+            .build(),
+    );
+    let blueSphereMedium = Arc::new(
+        Sprite::builder()
+            .geometry(ConstantMedium::new(Sphere::new(69.0).into(), 0.2).into())
+            .material(Isotropic::new(Vec3::new(0.2, 0.4, 0.9)).into())
+            .transform(Mat4::translation(Vec3::new(360.0, 150.0, 145.0)))
+            .build(),
+    );
+
+    let fog = Arc::new(
+        Sprite::builder()
+            .geometry(ConstantMedium::new(Sphere::new(5000.0).into(), 0.0001).into())
+            .material(Isotropic::new(Vec3::new(1.0, 1.0, 1.0)).into())
+            .build(),
+    );
+
+    // 左中的地球
+    let image = Arc::new(image::open("./earthmap.jpg").unwrap());
+    let mapping = move |uv: &(f64, f64)| -> Vec3 {
+        let image = image.clone();
+        let buffer = image.as_rgb8().unwrap();
+        let (u, v) = uv;
+        let pixel = buffer.get_pixel(
+            (u * buffer.width() as f64) as u32,
+            ((1.0 - v) * buffer.height() as f64) as u32,
+        );
+        return Vec3::new(
+            pixel[0] as f64 / 255.0,
+            pixel[1] as f64 / 255.0,
+            pixel[2] as f64 / 255.0,
+        );
+    };
+    let earthTexture: Arc<dyn Texture> = Arc::new(ImageTexture::new(mapping));
+    let earthMaterial = Arc::new(Lambertian::new(earthTexture));
+    let earth = Arc::new(
+        Sprite::builder()
+            .geometry(Sphere::new(100.0).into())
+            .material(earthMaterial)
+            .transform(Mat4::translation(Vec3::new(400.0, 200.0, 400.0)))
+            .build(),
+    );
+
+    // 右上角的泡沫塑料
+    let whiteMaterial = Arc::new(Lambertian::new(Vec3::new(0.73, 0.73, 0.73)));
+    let mut spheres: Vec<Arc<dyn Bound<AxisAlignedBoundingBox>>> = vec![];
+
+    for _ in 0..1000 {
+        let x = generator.gen_range(0.0, 165.0);
+        let y = generator.gen_range(0.0, 165.0);
+        let z = generator.gen_range(0.0, 165.0);
+
+        let sphere = Arc::new(
+            Sprite::builder()
+                .geometry(Sphere::new(10.0).into())
+                .material(whiteMaterial.clone())
+                .transform(Mat4::translation(Vec3::new(
+                    x - 100.0,
+                    y + 270.0,
+                    z + 395.0,
+                )))
+                .build(),
+        );
+        spheres.push(sphere);
+    }
+    let spheres: Arc<dyn Bound<AxisAlignedBoundingBox>> =
+        Arc::new(BoundingVolumeHierarchyNode::new(spheres).unwrap());
+
+    let res: Vec<Arc<dyn Bound<AxisAlignedBoundingBox>>> = vec![
+        cubes,
+        light as Arc<dyn Bound<AxisAlignedBoundingBox>>,
+        movingSphere,
+        glassSphere,
+        metalSphere,
+        blueSphereSurface,
+        blueSphereMedium,
+        earth,
+        fog,
+        spheres,
+    ];
+
+    return res;
 }
