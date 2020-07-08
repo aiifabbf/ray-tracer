@@ -6,7 +6,7 @@ use std::sync::Arc;
 #[derive(Copy, Debug, Clone)]
 pub struct Ray {
     origin: Vec3,
-    direction: Vec3,
+    direction: Vec3, // 必须是单位向量
 }
 
 impl Ray {
@@ -36,7 +36,7 @@ impl Ray {
 pub struct HitRecord<'a> {
     t: f64,
     intersection: Vec3,
-    normal: Vec3,
+    normal: Vec3, // 必须是单位向量
     // material: Option<Arc<dyn Material>>,
     material: Option<&'a dyn Material>, // 能不能有一天改成ref呢
     uv: (f64, f64),

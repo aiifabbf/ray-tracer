@@ -42,6 +42,7 @@ where
     T: Hit,
 {
     // 实现烟雾的大概思路是，不要在表面scatter，而是在物体的内部、在光束飞行的路线上随机选一点来scatter
+    // 我不知道书上的代码是怎么处理光束从物体内部发出的情况的，书上这一段的最下面写了一句从内部出发也是需要处理的，但是代码里好像完全没有处理，直接就return false了
     fn hit(&self, ray: &Ray) -> Option<HitRecord> {
         if let Some(record1) = self.boundary.hit(&ray) {
             // 第一次hit
@@ -99,3 +100,7 @@ where
     }
 }
 // 但是效果有点奇怪，方块的下半部分和示例不太一样。示例里面方块下半部分显得比较深，但是我却显得淡
+
+// 给Geometry加一些modifier
+// #[derive(Debug, Clone)]
+// pub struct Bump {}

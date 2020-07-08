@@ -227,15 +227,16 @@ fn finalScene() -> Vec<Arc<dyn Bound<AxisAlignedBoundingBox>>> {
     );
     let blueSphereMedium = Arc::new(
         Sprite::builder()
-            .geometry(ConstantMedium::new(Sphere::new(69.0).into(), 0.2).into())
+            .geometry(ConstantMedium::new(Sphere::new(70.0 - 1e-6).into(), 0.2).into())
             .material(Isotropic::new(Vec3::new(0.2, 0.4, 0.9)).into())
             .transform(Mat4::translation(Vec3::new(360.0, 150.0, 145.0)))
             .build(),
     );
 
+    // 覆盖全景的雾，在靠近灯光的地方可以看到类似丁达尔效应的感觉（？）但是我没有
     let fog = Arc::new(
         Sprite::builder()
-            .geometry(ConstantMedium::new(Sphere::new(5000.0).into(), 0.0001).into())
+            .geometry(ConstantMedium::new(Sphere::new(5000.0).into(), 0.1).into())
             .material(Isotropic::new(Vec3::new(1.0, 1.0, 1.0)).into())
             .build(),
     );
@@ -300,7 +301,7 @@ fn finalScene() -> Vec<Arc<dyn Bound<AxisAlignedBoundingBox>>> {
         blueSphereSurface,
         blueSphereMedium,
         earth,
-        fog,
+        // fog,
         spheres,
     ];
 

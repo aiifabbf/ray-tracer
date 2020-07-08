@@ -3,6 +3,9 @@ use crate::ray::Ray;
 use crate::util::randomInUnitSphere;
 use crate::vec3::Vec3;
 
+use rand::thread_rng;
+use rand::Rng;
+
 use std::f64::consts::PI;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -56,10 +59,10 @@ impl Into<SolidColor> for Vec3 {
 
 impl Material for Lambertian {
     fn scatter(&self, rayIn: &Ray, hitRecord: &HitRecord) -> Option<(Ray, Vec3)> {
-        let target = *hitRecord.intersection() + *hitRecord.normal() + randomInUnitSphere();
+        // let target = *hitRecord.intersection() + *hitRecord.normal() + randomInUnitSphere(); // 会不会出现0向量啊
         let scattered = Ray::new(
             *hitRecord.intersection(),
-            target - *hitRecord.intersection(),
+            (*hitRecord.normal() + randomInUnitSphere()).normalized(), // normalize一下吧……
         );
         let attenuation = self.albedo.value(hitRecord.uv(), hitRecord.intersection());
         return Some((scattered, attenuation));
@@ -94,17 +97,17 @@ impl Metal {
 
 impl Material for Metal {
     fn scatter(&self, rayIn: &Ray, hitRecord: &HitRecord) -> Option<(Ray, Vec3)> {
-        let reflected = rayIn.direction().normalized().reflected(hitRecord.normal());
-        let scattered = Ray::new(
-            *hitRecord.intersection(),
-            if self.fuzziness == 0.0 {
-                reflected
-            } else {
-                reflected + self.fuzziness * randomInUnitSphere()
-            },
-        );
-        let attenuation = self.albedo.value(hitRecord.uv(), hitRecord.intersection());
         if rayIn.direction().dot(hitRecord.normal()) < 0.0 {
+            let reflected = rayIn.direction().normalized().reflected(hitRecord.normal());
+            let scattered = Ray::new(
+                *hitRecord.intersection(),
+                if self.fuzziness == 0.0 {
+                    reflected
+                } else {
+                    (reflected + self.fuzziness * randomInUnitSphere()).normalized()
+                },
+            );
+            let attenuation = self.albedo.value(hitRecord.uv(), hitRecord.intersection());
             return Some((scattered, attenuation));
         } else {
             // eprintln!("{:#?} {:#?} {:#?}", rayIn, hitRecord.normal(), scattered);
@@ -131,6 +134,13 @@ impl Dielectric {
     pub fn refractive(&self) -> f64 {
         return self.refractive;
     }
+
+    // Schlick近似，计算反射概率
+    // <https://en.wikipedia.org/wiki/Schlick%27s_approximation>
+    fn schlickReflectionProbability(theta: f64, n1: f64, n2: f64) -> f64 {
+        let r0 = ((n1 - n2) / (n1 + n2)).powf(2.0);
+        return r0 + (1.0 - r0) * (1.0 - theta.cos()).powf(5.0);
+    }
 }
 
 impl Material for Dielectric {
@@ -140,25 +150,39 @@ impl Material for Dielectric {
         let mut normal = *hitRecord.normal();
 
         if rayIn.direction().dot(hitRecord.normal()) < 0.0 {
+            // 说明击中外表面
             refractiveInOverOut = 1.0 / self.refractive;
         } else {
+            // 说明击中内表面
             refractiveInOverOut = self.refractive;
             normal = -normal;
         }
 
-        if let Some(refracted) = rayIn
-            .direction()
-            .normalized()
-            .refracted(&normal, refractiveInOverOut)
-        {
-            // 折射
-            return Some((Ray::new(*hitRecord.intersection(), refracted), attenuation));
+        if let Some(refracted) = rayIn.direction().refracted(&normal, refractiveInOverOut) {
+            // 这边忘记考虑菲涅尔效应了 <https://en.wikipedia.org/wiki/Fresnel_equations> ，即使是外表面，也有几率反射而不是折射
+            let theta = (-rayIn.direction().dot(&normal)).acos();
+            if thread_rng().gen_range(0.0, 1.0)
+                < Dielectric::schlickReflectionProbability(theta, refractiveInOverOut, 1.0)
+            {
+                // 此时应该反射
+                let reflected = rayIn.direction().reflected(hitRecord.normal());
+                return Some((
+                    Ray::new(hitRecord.intersection().clone(), reflected),
+                    attenuation,
+                ));
+            } else {
+                // 此时应该折射
+                return Some((
+                    Ray::new(*hitRecord.intersection(), refracted.normalized()),
+                    attenuation,
+                ));
+            }
         } else {
             // 全反射
             return Some((
                 Ray::new(
                     *hitRecord.intersection(),
-                    rayIn.direction().normalized().reflected(&normal),
+                    rayIn.direction().reflected(&normal),
                 ),
                 attenuation,
             ));
@@ -292,7 +316,10 @@ impl Isotropic {
 
 impl Material for Isotropic {
     fn scatter(&self, rayIn: &Ray, hitRecord: &HitRecord) -> Option<(Ray, Vec3)> {
-        let scattered = Ray::new(hitRecord.intersection().clone(), randomInUnitSphere());
+        let scattered = Ray::new(
+            hitRecord.intersection().clone(),
+            randomInUnitSphere().normalized(),
+        );
         let attenuation = self.albedo.value(hitRecord.uv(), hitRecord.intersection());
         return Some((scattered, attenuation));
     }
