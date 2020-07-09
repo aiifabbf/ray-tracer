@@ -40,16 +40,18 @@ use crate::optimize::BoundingVolumeHierarchyNode;
 use rand::thread_rng;
 use rand::Rng; // generator.gen_range()居然会用到这个，匪夷所思
 
+use std::io::Write;
+
 // 知道了，因为gen_range是trait方法，所以必须要引入trait才行
 
 use std::sync::Arc;
 
 fn main() {
-    let width = 800;
-    let height = 800;
-    println!("P3");
-    println!("{:?} {:?}", width, height);
-    println!("255");
+    let width: usize = 800;
+    let height: usize = 800;
+    // println!("P3");
+    // println!("{:?} {:?}", width, height);
+    // println!("255");
 
     let world = BoundingVolumeHierarchyNode::new(finalScene()).unwrap();
     // eprintln!("{:#?}", world);
@@ -71,10 +73,10 @@ fn main() {
     let camera = Arc::new(camera);
 
     // 黑色背景下噪点很多，不知道是什么问题
-    let subPixelSampleCount = 256; // 每个pixel细分成多少个sub pixel
+    let subPixelSampleCount = 1000; // 每个pixel细分成多少个sub pixel
 
     let (sender, receiver) = std::sync::mpsc::channel();
-    let mut buffer = vec![vec![Vec3::new(0.0, 0.0, 0.0); width]; height];
+    // let mut buffer = vec![vec![Vec3::new(0.0, 0.0, 0.0); width]; height];
     let cpuCount = num_cpus::get();
 
     for i in 0..cpuCount {
@@ -109,27 +111,48 @@ fn main() {
 
     // 改成了4个worker thread，这样可以减少Arc clone的次数
 
+    // 改成输出png了，好像ppm很少有软件能打开
+    // image库真难用啊……
+    let mut img = image::DynamicImage::new_rgba8(width as u32, height as u32);
+
     for _ in (0..height).rev() {
         for _ in 0..width {
             let (x, y, pixel) = receiver.recv().unwrap();
-            buffer[y][x] = pixel;
+            // buffer[y][x] = pixel;
+            use image::GenericImage;
+            img.put_pixel(
+                x as u32,
+                (height - 1 - y) as u32,
+                image::Rgba([
+                    (pixel.r().sqrt() * 255.0).min(255.0) as u8,
+                    (pixel.g().sqrt() * 255.0).min(255.0) as u8,
+                    (pixel.b().sqrt() * 255.0).min(255.0) as u8,
+                    255,
+                ]),
+            );
+
             if x == 0 {
                 eprintln!("{:#?} {:#?}", y, x);
             }
         }
     }
 
-    for y in (0..height).rev() {
-        for x in 0..width {
-            let pixel = &buffer[y][x];
-            println!(
-                "{:?} {:?} {:?}",
-                (pixel.r().sqrt() * 255.0).min(255.0) as usize,
-                (pixel.g().sqrt() * 255.0).min(255.0) as usize,
-                (pixel.b().sqrt() * 255.0).min(255.0) as usize, // 有时候会发现有的像素的rgb值超过了255
-            );
-        }
-    }
+    // 不知道windows上会不会输出utf16
+    let mut stdout = std::io::stdout();
+    img.write_to(&mut stdout, image::ImageFormat::Png);
+    stdout.flush();
+
+    // for y in (0..height).rev() {
+    //     for x in 0..width {
+    //         let pixel = &buffer[y][x];
+    //         println!(
+    //             "{:?} {:?} {:?}",
+    //             (pixel.r().sqrt() * 255.0).min(255.0) as usize,
+    //             (pixel.g().sqrt() * 255.0).min(255.0) as usize,
+    //             (pixel.b().sqrt() * 255.0).min(255.0) as usize, // 有时候会发现有的像素的rgb值超过了255
+    //         );
+    //     }
+    // }
 }
 
 fn finalScene() -> Vec<Arc<dyn Bound<AxisAlignedBoundingBox>>> {
@@ -227,8 +250,9 @@ fn finalScene() -> Vec<Arc<dyn Bound<AxisAlignedBoundingBox>>> {
     );
     let blueSphereMedium = Arc::new(
         Sprite::builder()
-            .geometry(ConstantMedium::new(Sphere::new(70.0 - 1e-6).into(), 0.2).into())
-            .material(Isotropic::new(Vec3::new(0.2, 0.4, 0.9)).into())
+            // .geometry(ConstantMedium::new(Sphere::new(70.0 - 1e-6).into(), 0.2).into())
+            .geometry(Sphere::new(70.0 - 1e-6).into())
+            .material(Lambertian::new(Vec3::new(0.2, 0.4, 0.9)).into())
             .transform(Mat4::translation(Vec3::new(360.0, 150.0, 145.0)))
             .build(),
     );
@@ -301,7 +325,7 @@ fn finalScene() -> Vec<Arc<dyn Bound<AxisAlignedBoundingBox>>> {
         blueSphereSurface,
         blueSphereMedium,
         earth,
-        // fog,
+        fog,
         spheres,
     ];
 

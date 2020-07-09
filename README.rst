@@ -14,7 +14,7 @@ Quick start
 
 .. code-block:: bash
 
-    cargo run --release > image.ppm
+    cargo run --release > image.png
 
 ``--release`` can significantly increase rendering speed.
 
@@ -22,3 +22,4 @@ References
 ==========
 
 .. [book-i] `Ray Tracing in One Weekend <https://raytracing.github.io/books/RayTracingInOneWeekend.html>`_
+.. [book-ii] `Ray Tracing: The Next Week <https://raytracing.github.io/books/RayTracingTheNextWeek.html>`_
