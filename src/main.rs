@@ -259,9 +259,8 @@ fn finalScene() -> Vec<Arc<dyn Bound<AxisAlignedBoundingBox>>> {
     );
     let blueSphereMedium = Arc::new(
         Sprite::builder()
-            // .geometry(ConstantMedium::new(Sphere::new(70.0 - 1e-6).into(), 0.2).into())
-            .geometry(Sphere::new(70.0 - 1e-6).into())
-            .material(Lambertian::new(Vec3::new(0.2, 0.4, 0.9)).into())
+            .geometry(ConstantMedium::new(Sphere::new(70.0 - 1e-6).into(), 0.2).into())
+            .material(Isotropic::new(Vec3::new(0.2, 0.4, 0.9)).into())
             .transform(Mat4::translation(Vec3::new(360.0, 150.0, 145.0)))
             .build(),
     );
