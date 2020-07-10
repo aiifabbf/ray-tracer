@@ -138,9 +138,18 @@ fn main() {
     }
 
     // 不知道windows上会不会输出utf16
-    let mut stdout = std::io::stdout();
-    img.write_to(&mut stdout, image::ImageFormat::Png);
-    stdout.flush();
+    #[cfg(target_family = "unix")]
+    {
+        let mut stdout = std::io::stdout();
+        img.write_to(&mut stdout, image::ImageFormat::Png);
+        stdout.flush();
+    }
+
+    // 不知道怎么搞定windows的情况，那就直接存个图吧
+    #[cfg(target_family = "windows")]
+    {
+        img.save("image.png");
+    }
 
     // for y in (0..height).rev() {
     //     for x in 0..width {
