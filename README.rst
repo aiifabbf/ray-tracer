@@ -18,9 +18,23 @@ Download `this image <https://raytracing.github.io/images/earthmap.jpg>`_ and pu
 
     cargo run --release > image.png
 
+This will generate book 2's cover image.
+
 ``--release`` can significantly increase rendering speed.
 
 If you are on windows, just ``cargo run --release`` and find a ``image.png`` under root directory.
+
+To generate book 1's cover image (random spheres):
+
+.. code-block:: bash
+
+    cargo run --release --example book-one > image.ppm
+
+To generate Cornell box:
+
+.. code-block:: bash
+
+    cargo run --release --example cornell-box > image.ppm
 
 Features
 ========
