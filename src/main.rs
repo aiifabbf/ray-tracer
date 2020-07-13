@@ -268,7 +268,7 @@ fn finalScene() -> Vec<Arc<dyn Bound<AxisAlignedBoundingBox>>> {
     // 覆盖全景的雾，在靠近灯光的地方可以看到类似丁达尔效应的感觉（？）但是我没有
     let fog = Arc::new(
         Sprite::builder()
-            .geometry(ConstantMedium::new(Sphere::new(5000.0).into(), 0.1).into())
+            .geometry(ConstantMedium::new(Sphere::new(5000.0).into(), 0.0001).into())
             .material(Isotropic::new(Vec3::new(1.0, 1.0, 1.0)).into())
             .build(),
     );

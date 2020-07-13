@@ -87,8 +87,8 @@ where
                 uv.0 = uv.0;
                 uv.1 = uv.1;
                 return Some(HitRecord::new(
-                    record1.t() + distance,
-                    ray.at(record1.t() + distance),
+                    distance, // 这里原来写错了
+                    ray.at(distance),
                     record1.normal().clone(),
                     None,
                     uv,
