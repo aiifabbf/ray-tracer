@@ -406,3 +406,64 @@ mod tests {
         println!("{:#?}", mat * 9.0);
     }
 }
+
+// 加个cache吧，不然每次都要算逆矩阵真的太慢了……
+// 一开始以为编译器会优化这个的，结果用flamegraph看了一下，发现算逆矩阵居然占用了大概三分之一的时间。
+// 改好了之后再测试发现确实快了很多。
+#[derive(Copy, Debug, Clone)]
+pub struct Mat4Cached {
+    origin: Mat4,
+    inversed: Mat4,
+    determinant: f64,
+}
+
+impl Mat4Cached {
+    pub fn new(matrix: Mat4) -> Self {
+        match matrix.inversed() {
+            Some(inversed) => Self {
+                origin: matrix,
+                inversed: inversed,
+                determinant: matrix.determinant(),
+            },
+            _ => Self {
+                origin: matrix,
+                inversed: Mat4::zero(),
+                determinant: matrix.determinant(),
+            },
+        }
+    }
+
+    pub fn origin(&self) -> &Mat4 {
+        &self.origin
+    }
+
+    pub fn inversed(&self) -> Option<&Mat4> {
+        if self.determinant() == 0.0 {
+            None
+        } else {
+            Some(&self.inversed)
+        }
+    }
+
+    pub fn determinant(&self) -> f64 {
+        self.determinant
+    }
+}
+
+impl Into<Mat4> for Mat4Cached {
+    fn into(self) -> Mat4 {
+        *self.origin()
+    }
+}
+
+impl Into<Mat4Cached> for Mat4 {
+    fn into(self) -> Mat4Cached {
+        Mat4Cached::new(self)
+    }
+}
+
+impl AsRef<Mat4> for Mat4Cached {
+    fn as_ref(&self) -> &Mat4 {
+        self.origin()
+    }
+}

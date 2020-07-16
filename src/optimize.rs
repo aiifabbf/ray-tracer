@@ -157,7 +157,7 @@ where
                     Vec3::new(x1, y1, z1),
                 ]
                 .iter()
-                .map(|v| v.xyz1().transformed(transform).xyz())
+                .map(|v| v.xyz1().transformed(transform.as_ref()).xyz())
                 {
                     for i in 0..3 {
                         if point[i] < min[i] {
@@ -216,7 +216,7 @@ where
                 Vec3::new(x1, y1, z1),
             ]
             .iter()
-            .map(|v| v.xyz1().transformed(transform).xyz())
+            .map(|v| v.xyz1().transformed(transform.as_ref()).xyz())
             {
                 for i in 0..3 {
                     if point[i] < min[i] {

@@ -1,4 +1,5 @@
 use crate::mat4::Mat4;
+use crate::mat4::Mat4Cached;
 use crate::ray::Hit;
 use crate::ray::HitRecord;
 use crate::ray::Ray;
@@ -183,14 +184,17 @@ impl Hit for Rectangle {
 #[derive(Debug, Clone)]
 pub struct TransformedGeometry<T> {
     geometry: T, // geometry应不应该是Arc<T>呢？因为这个可以看作是对原来geometry的修饰
-    transform: Mat4,
+    transform: Mat4Cached,
 }
 
 impl<T> TransformedGeometry<T> {
-    pub fn new(geometry: T, transform: Mat4) -> Self {
+    pub fn new<M>(geometry: T, transform: M) -> Self
+    where
+        M: Into<Mat4Cached>,
+    {
         Self {
             geometry: geometry,
-            transform: transform,
+            transform: transform.into(),
         }
     }
 
@@ -198,7 +202,7 @@ impl<T> TransformedGeometry<T> {
         return &self.geometry;
     }
 
-    pub fn transform(&self) -> &Mat4 {
+    pub fn transform(&self) -> &Mat4Cached {
         return &self.transform;
     }
 }
@@ -220,8 +224,8 @@ where
 
             if let Some(record) = geometry.hit(&ray) {
                 // 击中后再正变换
-                let intersection = record.intersection().xyz1().transformed(transform);
-                let normal = record.normal().xyz0().transformed(transform);
+                let intersection = record.intersection().xyz1().transformed(transform.as_ref());
+                let normal = record.normal().xyz0().transformed(transform.as_ref());
 
                 let res = HitRecord::new(
                     record.t(),

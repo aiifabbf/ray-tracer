@@ -1,4 +1,5 @@
 use crate::mat4::Mat4;
+use crate::mat4::Mat4Cached;
 use crate::material::Material;
 use crate::ray::Hit;
 use crate::ray::HitRecord;
@@ -10,7 +11,7 @@ use std::sync::Arc;
 pub struct Sprite<T, U> {
     geometry: Option<Arc<T>>, // 这里好像就不得不用泛型了，纯粹的Hit无法保证这个Sprite对象能不能放到BVH里，但是又确实存在可能没有bounding box的sprite
     material: Option<Arc<U>>, // 还是把material改成泛型了……改成泛型之后出现了我没法理解的lifetime问题，还是暂时先不改了
-    transform: Mat4,
+    transform: Mat4Cached,
     // 书上只实现了translate和rotate，而且写的非常不漂亮……我就在想如何以不变应万变，如何做到任意4x4变换矩阵都可以。研究了一下书上translate和rotate的代码，我发现只要把输入光线做反变换、反射光线做正变换就可以了
     // 但是这里还是可能留下了两个问题：
     // 位移和旋转的行列式都是1，说明它们不改变原物体的体积，单位圆还是单位圆，但是如果det一旦不是1，比如一个把单位圆在垂直方向拉伸、变成椭球的矩阵，这时候表面法向量不是简单的做正变换，我记得是乘以逆变换的转置（但我找不到资料了）
@@ -42,8 +43,11 @@ impl<T, U> SpriteBuilder<T, U> {
         return self;
     }
 
-    pub fn transform(mut self, transform: Mat4) -> Self {
-        self.sprite.transform = transform;
+    pub fn transform<M>(mut self, transform: M) -> Self
+    where
+        M: Into<Mat4Cached>,
+    {
+        self.sprite.transform = transform.into();
         return self;
     }
 }
@@ -54,7 +58,7 @@ impl<T, U> Sprite<T, U> {
             sprite: Sprite {
                 geometry: None,
                 material: None,
-                transform: Mat4::identity(),
+                transform: Mat4::identity().into(),
             },
         }
     }
@@ -63,7 +67,7 @@ impl<T, U> Sprite<T, U> {
         Self {
             geometry: geometry,
             material: material,
-            transform: Mat4::identity(),
+            transform: Mat4::identity().into(),
         }
     }
 
@@ -75,7 +79,7 @@ impl<T, U> Sprite<T, U> {
         return &self.material;
     }
 
-    pub fn transform(&self) -> &Mat4 {
+    pub fn transform(&self) -> &Mat4Cached {
         return &self.transform;
     }
 }
@@ -101,8 +105,14 @@ where
 
                 if let Some(record) = geometry.hit(&ray) {
                     // 击中后再正变换
-                    let intersection = record.intersection().xyz1().transformed(self.transform());
-                    let normal = record.normal().xyz0().transformed(self.transform());
+                    let intersection = record
+                        .intersection()
+                        .xyz1()
+                        .transformed(self.transform().as_ref());
+                    let normal = record
+                        .normal()
+                        .xyz0()
+                        .transformed(self.transform().as_ref());
 
                     let res = HitRecord::new(
                         record.t(),
