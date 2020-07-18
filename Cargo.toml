@@ -8,5 +8,7 @@ edition = "2018"
 
 [dependencies]
 rand = "*"
+
+[dev-dependencies]
 num_cpus = "*"
 image = "*"

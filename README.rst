@@ -16,9 +16,9 @@ Download `this image <https://raytracing.github.io/images/earthmap.jpg>`_ and pu
 
 .. code-block:: bash
 
-    cargo run --release > image.png
+    cargo run --release --example main > image.png
 
-This will generate book 2's cover image.
+This will generate book 2's cover image. It takes roughly 1 hour on my i5-3317U.
 
 ``--release`` can significantly increase rendering speed.
 
@@ -30,11 +30,15 @@ To generate book 1's cover image (random spheres):
 
     cargo run --release --example book-one > image.ppm
 
+This example takes about 10 min on my i5-3317U.
+
 To generate Cornell box:
 
 .. code-block:: bash
 
     cargo run --release --example cornell-box > image.ppm
+
+This example takes about 1 hour on my i5-3317U.
 
 Features
 ========
@@ -91,8 +95,22 @@ Get color at image position `(x, y)` (image coordinate origin is at lower-left c
     let ray = camera.ray(u, v);
     let pixel = color(&ray, world.as_ref(), 100); // ray scatters at most 100 times
 
+To-do
+=====
+
+-   surface/geometry modifiers like bump map
+-   random noise textures
+-   GPU parallelism to speedup (real time?)
+-   port to WebAssembly
+-   physical realism for wave optics
+-   mesh/mass triangle rendering
+-   load from 3D files like ``.obj``
+
+Please feel free to drop an issue or a comment!
+
 References
 ==========
 
 .. [book-i] `Ray Tracing in One Weekend <https://raytracing.github.io/books/RayTracingInOneWeekend.html>`_
 .. [book-ii] `Ray Tracing: The Next Week <https://raytracing.github.io/books/RayTracingTheNextWeek.html>`_
+.. [pbr] `Physically Based Rendering: From Theory to Implementation <http://www.pbr-book.org/>`_

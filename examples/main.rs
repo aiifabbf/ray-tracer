@@ -1,41 +1,30 @@
-mod camera;
-mod geometry;
-mod mat4;
-mod material;
-mod optimize;
-mod ray;
-mod render;
-mod sprite;
-mod util;
-mod vec3;
-mod vec4;
-mod volume;
+extern crate ray_tracer;
 
-use crate::camera::Camera; // 非要把trait也import进来才能调用trait方法
-use crate::camera::PerspectiveCamera;
-use crate::geometry::Cube;
-use crate::geometry::Rectangle;
-use crate::geometry::Sphere;
-use crate::mat4::Mat4;
-use crate::material::CheckerTexture;
-use crate::material::Dielectric;
-use crate::material::DiffuseLight;
-use crate::material::ImageTexture;
-use crate::material::Isotropic;
-use crate::material::Lambertian;
-use crate::material::Material;
-use crate::material::Metal;
-use crate::material::SolidColor;
-use crate::material::Texture;
-use crate::ray::Hit;
-use crate::render::color;
-use crate::sprite::Sprite;
-use crate::vec3::Vec3;
-use crate::volume::ConstantMedium;
+use ray_tracer::camera::Camera; // 非要把trait也import进来才能调用trait方法
+use ray_tracer::camera::PerspectiveCamera;
+use ray_tracer::geometry::Cube;
+use ray_tracer::geometry::Rectangle;
+use ray_tracer::geometry::Sphere;
+use ray_tracer::mat4::Mat4;
+use ray_tracer::material::CheckerTexture;
+use ray_tracer::material::Dielectric;
+use ray_tracer::material::DiffuseLight;
+use ray_tracer::material::ImageTexture;
+use ray_tracer::material::Isotropic;
+use ray_tracer::material::Lambertian;
+use ray_tracer::material::Material;
+use ray_tracer::material::Metal;
+use ray_tracer::material::SolidColor;
+use ray_tracer::material::Texture;
+use ray_tracer::ray::Hit;
+use ray_tracer::render::color;
+use ray_tracer::sprite::Sprite;
+use ray_tracer::vec3::Vec3;
+use ray_tracer::volume::ConstantMedium;
 
-use crate::optimize::AxisAlignedBoundingBox;
-use crate::optimize::Bound;
-use crate::optimize::BoundingVolumeHierarchyNode;
+use ray_tracer::optimize::AxisAlignedBoundingBox;
+use ray_tracer::optimize::Bound;
+use ray_tracer::optimize::BoundingVolumeHierarchyNode;
 
 use rand::thread_rng;
 use rand::Rng; // generator.gen_range()居然会用到这个，匪夷所思
@@ -259,7 +248,7 @@ fn finalScene() -> Vec<Arc<dyn Bound<AxisAlignedBoundingBox>>> {
     );
     let blueSphereMedium = Arc::new(
         Sprite::builder()
-            .geometry(ConstantMedium::new(Sphere::new(70.0 - 1e-6).into(), 0.2).into())
+            .geometry(ConstantMedium::new(Sphere::new(70.0 - 1e-6).into(), 0.03).into())
             .material(Isotropic::new(Vec3::new(0.2, 0.4, 0.9)).into())
             .transform(Mat4::translation(Vec3::new(360.0, 150.0, 145.0)))
             .build(),
@@ -333,7 +322,7 @@ fn finalScene() -> Vec<Arc<dyn Bound<AxisAlignedBoundingBox>>> {
         blueSphereSurface,
         blueSphereMedium,
         earth,
-        fog,
+        fog, // 为什么加了场景雾之后蓝色玻璃球就不透光了呢
         spheres,
     ];
 
